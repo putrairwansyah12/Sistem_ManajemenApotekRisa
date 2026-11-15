@@ -1,0 +1,4 @@
+prisma/
+  data/items.json
+  schema.prisma
+  seed.js

@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Apotek Risa
 
-## Getting Started
+Sistem informasi apotek berbasis Next.js dan PostgreSQL. Fitur yang sudah tersambung ke database:
 
-First, run the development server:
+- Login dengan session cookie HTTP-only dan pembatasan peran pemilik/kasir.
+- Dashboard omzet, transaksi terbaru, stok menipis, dan batch kedaluwarsa.
+- Katalog obat, kategori, satuan, harga, dan arsip produk.
+- Transaksi penjualan dengan validasi stok serta pengurangan stok atomik.
+- Penerimaan batch, pemantauan kedaluwarsa, serta pemakaian batch FEFO saat penjualan.
+- Stock opname dan riwayat penyesuaian.
+- Riwayat penjualan, batch kedaluwarsa, serta pembuatan akun pengguna.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Persiapan
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. Pastikan PostgreSQL tersedia dan buat database untuk aplikasi.
+2. Salin `.env.example` menjadi `.env`, lalu isi `DATABASE_URL`.
+3. `.env` juga harus memiliki `APOTEKRISA_DEV_ACCOUNT_EMAIL`, `APOTEKRISA_DEV_ACCOUNT_NAME`, `APOTEKRISA_DEV_ACCOUNT_PASSWORD` (minimal 12 karakter), dan `APOTEKRISA_DEV_ACCOUNT_ROLE` (`PEMILIK` atau `KASIR`) untuk akun uji coba.
+4. Buat nilai rahasia sesi. Contoh PowerShell:
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   Masukkan hasilnya sebagai `AUTH_SECRET` di `.env`. Opsional: atur `OWNER_PASSWORD` untuk membuat akun pemilik awal `pemilik`. Jangan commit `.env`.
+5. Pasang dependensi dan siapkan database:
 
-## Learn More
+   ```powershell
+   npm install
+   npm run db:generate
+   npm run db:migrate
+   npm run db:seed
+   npm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+6. Buka `http://localhost:3000` dan gunakan username/password uji coba yang sudah diset di `.env`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API utama
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/session`
+- `GET|POST /api/products`, `PATCH|DELETE /api/products/:id`
+- `GET|POST /api/sales`
+- `GET|POST /api/stock-opname`
+- `GET /api/dashboard`, `GET|POST /api/expiry`
+- `GET /api/price-history`
+- `GET|POST /api/users` (khusus pemilik)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Impor Excel, ekspor laporan produksi, data pemasok/penerimaan, backup database, dan sinkronisasi offline belum termasuk backend MVP ini.

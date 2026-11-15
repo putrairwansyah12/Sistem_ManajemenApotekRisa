@@ -1,0 +1,255 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  PEMILIK
+  KASIR
+}
+
+enum JenisJual {
+  OFFLINE
+  ONLINE
+}
+
+enum JenisHarga {
+  BELI
+  JUAL
+}
+
+enum TipeBerkas {
+  EXCEL
+  PDF
+}
+
+enum StatusImpor {
+  PRATINJAU
+  BERHASIL
+  GAGAL
+}
+
+// ---------------------------------------------------------------
+// 1. PENGGUNA
+// ---------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement())
+  nama         String   @db.VarChar(100)
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         Role
+  aktif        Boolean  @default(true)
+  dibuatPada   DateTime @default(now()) @map("dibuat_pada")
+
+  stockOpname    StockOpname[]
+  transaksi      TransaksiPenjualan[]
+  kalkulasiHarga KalkulasiHarga[]
+  riwayatHarga   RiwayatHarga[]
+  imporData      ImporData[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------
+// 2. MASTER DATA
+// ---------------------------------------------------------------
+model KategoriObat {
+  id     Int      @id @default(autoincrement())
+  nama   String   @unique @db.VarChar(50)
+  produk Produk[]
+
+  @@map("kategori_obat")
+}
+
+model Satuan {
+  id     Int      @id @default(autoincrement())
+  kode   String   @unique @db.VarChar(20)
+  produk Produk[]
+
+  @@map("satuan")
+}
+
+// ---------------------------------------------------------------
+// 3. PRODUK OBAT
+// ---------------------------------------------------------------
+model Produk {
+  id             Int      @id @default(autoincrement())
+  kodeBarang     String?  @unique @map("kode_barang") @db.VarChar(30)
+  namaProduk     String   @map("nama_produk") @db.VarChar(200)
+  kategoriId     Int      @map("kategori_id")
+  satuanId       Int      @map("satuan_id")
+  stok           Int      @default(0)
+  stokMinimum    Int      @default(0) @map("stok_minimum")
+  hargaBeli      Decimal  @default(0) @map("harga_beli") @db.Decimal(12, 2)
+  hargaJual      Decimal  @default(0) @map("harga_jual") @db.Decimal(12, 2)
+  hpp            Decimal  @default(0) @db.Decimal(12, 2)
+  aktif          Boolean  @default(true)
+  diperbaruiPada DateTime @updatedAt @map("diperbarui_pada")
+
+  kategori        KategoriObat      @relation(fields: [kategoriId], references: [id])
+  satuan          Satuan            @relation(fields: [satuanId], references: [id])
+  batch           BatchProduk[]
+  stockOpname     StockOpname[]
+  detailPenjualan DetailPenjualan[]
+  kalkulasiHarga  KalkulasiHarga[]
+  riwayatHarga    RiwayatHarga[]
+
+  @@index([namaProduk])
+  @@map("produk")
+}
+
+model BatchProduk {
+  id                 Int      @id @default(autoincrement())
+  produkId           Int      @map("produk_id")
+  nomorBatch         String   @map("nomor_batch") @db.VarChar(50)
+  tanggalKedaluwarsa DateTime @map("tanggal_kedaluwarsa") @db.Date
+  jumlah             Int      @default(0)
+
+  produk Produk @relation(fields: [produkId], references: [id], onDelete: Cascade)
+
+  @@unique([produkId, nomorBatch])
+  @@index([tanggalKedaluwarsa])
+  @@map("batch_produk")
+}
+
+// ---------------------------------------------------------------
+// 4. PASIEN
+// ---------------------------------------------------------------
+model Pasien {
+  id         Int      @id @default(autoincrement())
+  nama       String   @db.VarChar(100)
+  alamat     String?  @db.VarChar(255)
+  kontak     String?  @db.VarChar(20)
+  dibuatPada DateTime @default(now()) @map("dibuat_pada")
+
+  kunjungan KunjunganPasien[]
+
+  @@map("pasien")
+}
+
+model KunjunganPasien {
+  id       Int      @id @default(autoincrement())
+  pasienId Int      @map("pasien_id")
+  tanggal  DateTime @default(now())
+  keluhan  String?  @db.Text
+
+  pasien Pasien @relation(fields: [pasienId], references: [id], onDelete: Cascade)
+
+  @@index([tanggal])
+  @@map("kunjungan_pasien")
+}
+
+// ---------------------------------------------------------------
+// 5. STOCK OPNAME
+// ---------------------------------------------------------------
+model StockOpname {
+  id         Int      @id @default(autoincrement())
+  produkId   Int      @map("produk_id")
+  userId     Int      @map("user_id")
+  tanggal    DateTime @default(now())
+  stokSistem Int      @map("stok_sistem")
+  stokFisik  Int      @map("stok_fisik")
+  selisih    Int // dihitung di aplikasi: stokFisik - stokSistem
+  alasan     String   @db.VarChar(255)
+
+  produk Produk @relation(fields: [produkId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tanggal])
+  @@map("stock_opname")
+}
+
+// ---------------------------------------------------------------
+// 6. TRANSAKSI PENJUALAN
+// ---------------------------------------------------------------
+model TransaksiPenjualan {
+  id            Int       @id @default(autoincrement())
+  kodeTransaksi String    @unique @map("kode_transaksi") @db.VarChar(30)
+  tanggal       DateTime  @default(now())
+  userId        Int       @map("user_id")
+  jenis         JenisJual
+  total         Decimal   @default(0) @db.Decimal(14, 2)
+
+  user   User              @relation(fields: [userId], references: [id])
+  detail DetailPenjualan[]
+
+  @@index([tanggal])
+  @@map("transaksi_penjualan")
+}
+
+model DetailPenjualan {
+  id          Int     @id @default(autoincrement())
+  transaksiId Int     @map("transaksi_id")
+  produkId    Int     @map("produk_id")
+  jumlah      Int
+  hargaSatuan Decimal @map("harga_satuan") @db.Decimal(12, 2)
+  subtotal    Decimal @db.Decimal(14, 2)
+
+  transaksi TransaksiPenjualan @relation(fields: [transaksiId], references: [id], onDelete: Cascade)
+  produk    Produk             @relation(fields: [produkId], references: [id])
+
+  @@map("detail_penjualan")
+}
+
+// ---------------------------------------------------------------
+// 7. KALKULASI HARGA & RIWAYAT HARGA
+// ---------------------------------------------------------------
+model KalkulasiHarga {
+  id               Int      @id @default(autoincrement())
+  produkId         Int      @map("produk_id")
+  userId           Int      @map("user_id")
+  tanggal          DateTime @default(now())
+  hpp              Decimal  @db.Decimal(12, 2)
+  persenBiayaAdmin Decimal  @default(0) @map("persen_biaya_admin") @db.Decimal(5, 2)
+  biayaPengemasan  Decimal  @default(0) @map("biaya_pengemasan") @db.Decimal(12, 2)
+  biayaLayanan     Decimal  @default(0) @map("biaya_layanan") @db.Decimal(12, 2)
+  persenTargetLaba Decimal  @default(0) @map("persen_target_laba") @db.Decimal(5, 2)
+  hargaJual        Decimal  @map("harga_jual") @db.Decimal(12, 2)
+  labaBersih       Decimal  @map("laba_bersih") @db.Decimal(12, 2)
+
+  produk  Produk         @relation(fields: [produkId], references: [id])
+  user    User           @relation(fields: [userId], references: [id])
+  riwayat RiwayatHarga[]
+
+  @@map("kalkulasi_harga")
+}
+
+model RiwayatHarga {
+  id          Int        @id @default(autoincrement())
+  produkId    Int        @map("produk_id")
+  userId      Int        @map("user_id")
+  kalkulasiId Int?       @map("kalkulasi_id")
+  jenisHarga  JenisHarga @map("jenis_harga")
+  tanggal     DateTime   @default(now())
+  hargaLama   Decimal    @map("harga_lama") @db.Decimal(12, 2)
+  hargaBaru   Decimal    @map("harga_baru") @db.Decimal(12, 2)
+
+  produk    Produk          @relation(fields: [produkId], references: [id])
+  user      User            @relation(fields: [userId], references: [id])
+  kalkulasi KalkulasiHarga? @relation(fields: [kalkulasiId], references: [id])
+
+  @@index([tanggal])
+  @@map("riwayat_harga")
+}
+
+// ---------------------------------------------------------------
+// 8. IMPOR DATA
+// ---------------------------------------------------------------
+model ImporData {
+  id          Int         @id @default(autoincrement())
+  namaBerkas  String      @map("nama_berkas") @db.VarChar(255)
+  tipeBerkas  TipeBerkas  @map("tipe_berkas")
+  userId      Int         @map("user_id")
+  tanggal     DateTime    @default(now())
+  jumlahBaris Int         @default(0) @map("jumlah_baris")
+  status      StatusImpor @default(PRATINJAU)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("impor_data")
+}
