@@ -5,10 +5,13 @@ Sistem informasi apotek berbasis Next.js dan PostgreSQL. Fitur yang sudah tersam
 - Login dengan session cookie HTTP-only dan pembatasan peran pemilik/kasir.
 - Dashboard omzet, transaksi terbaru, stok menipis, dan batch kedaluwarsa.
 - Katalog obat, kategori, satuan, harga, dan arsip produk.
-- Transaksi penjualan dengan validasi stok serta pengurangan stok atomik.
-- Penerimaan batch, pemantauan kedaluwarsa, serta pemakaian batch FEFO saat penjualan.
-- Stock opname dan riwayat penyesuaian.
-- Riwayat penjualan, batch kedaluwarsa, serta pembuatan akun pengguna.
+- Transaksi penjualan offline/online dengan potongan, biaya, snapshot HPP, FEFO, dan validasi stok batch.
+- Penerimaan batch, peringatan kedaluwarsa 3/6 bulan, serta deteksi batch dengan tanggal kedaluwarsa sama.
+- Stock opname per batch dengan riwayat rincian dan pembaruan stok atomik.
+- Kalkulator harga dengan laba kotor/bersih dan riwayat harga beli, HPP, serta harga jual.
+- Pencatatan biaya operasional dan laporan harian, bulanan, serta tahunan.
+- Impor/ekspor produk Excel dan backup/restore database khusus pemilik.
+- Riwayat penjualan dan manajemen akun pengguna.
 
 ## Persiapan
 
@@ -42,6 +45,30 @@ Sistem informasi apotek berbasis Next.js dan PostgreSQL. Fitur yang sudah tersam
 - `GET|POST /api/stock-opname`
 - `GET /api/dashboard`, `GET|POST /api/expiry`
 - `GET /api/price-history`
+- `GET|POST /api/expenses`, `DELETE /api/expenses/:id`
+- `GET /api/reports?period=day|month|year&date=YYYY-MM-DD`
+- `GET|POST /api/backup` (khusus pemilik)
 - `GET|POST /api/users` (khusus pemilik)
 
-Impor Excel, ekspor laporan produksi, data pemasok/penerimaan, backup database, dan sinkronisasi offline belum termasuk backend MVP ini.
+### Impor dan ekspor produk Excel
+
+Kedua endpoint hanya dapat digunakan oleh pengguna berperan `PEMILIK`.
+
+- `GET /api/products/export` mengunduh `produk.xlsx` berisi semua produk aktif pada lembar `Produk`.
+- `POST /api/products/import` menerima `multipart/form-data` dengan tepat satu file `.xlsx` pada field `file` dan field teks `mode` (`preview` atau `commit`). Batas ukuran file 5 MB, 32 MB setelah dekompresi, dan 5.000 baris data.
+- Lembar pertama wajib memakai satu baris header dengan urutan tepat: `kodeBarang,namaProduk,kategori,satuan,hargaBeli,hpp,hargaJual,stok,stokMinimum`. Kolom teks harus berupa teks; nilai harga dan stok harus berupa angka nonnegatif (teks angka dengan titik desimal juga diterima). Harga maksimal dua angka desimal.
+- `preview` tidak menyimpan perubahan dan mengembalikan `{ mode, filename, rowCount, counts, rows }`. Tiap entri `rows` memuat nomor `row`, `action` (`create`, `update`, `ambiguous`, atau `invalid`), `productId`, data `product`, dan daftar `errors`.
+- `commit` mem-parsing ulang serta mencocokkan ulang data sebelum menyimpan. Jika ada error, respons HTTP 422 memuat daftar baris yang sama dan tidak menyimpan perubahan. Respons sukses juga memuat `audit` dengan status `BERHASIL`.
+- Produk dengan `kodeBarang` terisi dicocokkan hanya berdasarkan kode tersebut. Tanpa kode, pencocokan memakai nama+kategori+satuan setelah trim, peringkasan spasi, dan perbandingan tanpa membedakan kapital; beberapa kecocokan dianggap ambigu. Produk baru menerima nilai stok awal dari workbook, sedangkan pembaruan tidak pernah menimpa stok.
+- `counts` memuat jumlah `create`, `update`, `ambiguous`, dan `errors`; respons juga menyertakan `rowCount` dan detail semua baris yang tidak kosong.
+
+### Backup dan restore
+
+- `GET /api/backup` mengunduh backup JSON yang mencakup data seluruh tabel aplikasi, termasuk hash sandi untuk mempertahankan akun.
+- `POST /api/backup` menerima file backup tersebut dalam JSON dengan properti tambahan `"confirmation": "RESTORE"`. Restore mengganti semua data dan hanya dapat dilakukan pemilik; batas ukuran file 25 MB.
+- Simpan file backup dengan aman karena file berisi hash sandi akun. Jangan gunakan backup dari sumber yang tidak dipercaya.
+
+### Biaya dan laporan
+
+- Biaya operasional dibuat dan dihapus melalui endpoint pemilik; laporan menerima periode `day`, `month`, atau `year` serta tanggal acuan.
+- Laba bersih laporan mengurangi laba kotor dengan potongan, biaya admin, pajak, pengemasan, layanan, gratis ongkir, dan biaya operasional.

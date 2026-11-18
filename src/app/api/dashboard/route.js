@@ -1,17 +1,15 @@
 import { apiError, requireUser } from "../../../lib/auth";
+import { getExpiryThresholds } from "../../../lib/expiry";
 import { prisma } from "../../../lib/prisma";
 
 export async function GET() {
   try {
     await requireUser();
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const { start, returEnd, preventifEnd } = getExpiryThresholds();
     const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    const expiryLimit = new Date(end);
-    expiryLimit.setDate(expiryLimit.getDate() + 29);
+    end.setUTCDate(end.getUTCDate() + 1);
 
-    const [todaySales, activeProducts, expiringCount, recentSales] = await Promise.all([
+    const [todaySales, activeProducts, expiringCount, returnWindowCount, recentSales] = await Promise.all([
       prisma.transaksiPenjualan.aggregate({
         where: { tanggal: { gte: start, lt: end } },
         _sum: { total: true },
@@ -22,7 +20,10 @@ export async function GET() {
         select: { id: true, namaProduk: true, stok: true, stokMinimum: true, satuan: { select: { kode: true } } },
       }),
       prisma.batchProduk.count({
-        where: { jumlah: { gt: 0 }, tanggalKedaluwarsa: { gte: start, lte: expiryLimit }, produk: { aktif: true } },
+        where: { jumlah: { gt: 0 }, tanggalKedaluwarsa: { gte: start, lte: preventifEnd }, produk: { aktif: true } },
+      }),
+      prisma.batchProduk.count({
+        where: { jumlah: { gt: 0 }, tanggalKedaluwarsa: { gte: start, lte: returEnd }, produk: { aktif: true } },
       }),
       prisma.transaksiPenjualan.findMany({
         include: { user: { select: { nama: true } }, detail: true },
@@ -41,6 +42,7 @@ export async function GET() {
         .sort((a, b) => a.stok - b.stok)
         .slice(0, 8),
       expiringCount,
+      returnWindowCount,
       recentSales,
     });
   } catch (error) {

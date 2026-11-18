@@ -27,24 +27,55 @@ export async function PATCH(request, { params }) {
       if (!Number.isInteger(stokMinimum) || stokMinimum < 0) throw new ApiError("Stok minimum tidak valid.");
       data.stokMinimum = stokMinimum;
     }
-    if (body.hargaJual !== undefined) {
-      const hargaJual = Number(body.hargaJual);
-      if (!Number.isFinite(hargaJual) || hargaJual < 0) throw new ApiError("Harga jual tidak valid.");
-      data.hargaJual = hargaJual;
+    for (const field of ["hargaBeli", "hpp", "hargaJual"]) {
+      if (body[field] === undefined) continue;
+      const price = Number(body[field]);
+      if (!Number.isFinite(price) || price < 0 || price > 9999999999.99) throw new ApiError(`${field} tidak valid.`);
+      data[field] = price;
+    }
+    if (body.kategori !== undefined) {
+      if (typeof body.kategori !== "string" || !body.kategori.trim() || body.kategori.trim().length > 50) {
+        throw new ApiError("Kategori tidak valid.");
+      }
+      data.kategoriId = body.kategori.trim();
+    }
+    if (body.satuan !== undefined) {
+      if (typeof body.satuan !== "string" || !body.satuan.trim() || body.satuan.trim().length > 20) {
+        throw new ApiError("Satuan tidak valid.");
+      }
+      data.satuanId = body.satuan.trim();
     }
     if (!Object.keys(data).length) throw new ApiError("Tidak ada perubahan yang dikirim.");
     const product = await prisma.$transaction(async (tx) => {
       const existing = await tx.produk.findUnique({ where: { id } });
       if (!existing) throw new ApiError("Produk tidak ditemukan.", 404);
-      const updated = await tx.produk.update({ where: { id }, data });
-      if (data.hargaJual !== undefined && Number(existing.hargaJual) !== data.hargaJual) {
+      const updateData = { ...data };
+      if (typeof updateData.kategoriId === "string") {
+        const kategori = await tx.kategoriObat.upsert({
+          where: { nama: updateData.kategoriId },
+          update: {},
+          create: { nama: updateData.kategoriId },
+        });
+        updateData.kategoriId = kategori.id;
+      }
+      if (typeof updateData.satuanId === "string") {
+        const satuan = await tx.satuan.upsert({
+          where: { kode: updateData.satuanId },
+          update: {},
+          create: { kode: updateData.satuanId },
+        });
+        updateData.satuanId = satuan.id;
+      }
+      const updated = await tx.produk.update({ where: { id }, data: updateData });
+      for (const [field, jenisHarga] of [["hargaBeli", "BELI"], ["hpp", "HPP"], ["hargaJual", "JUAL"]]) {
+        if (data[field] === undefined || Number(existing[field]) === data[field]) continue;
         await tx.riwayatHarga.create({
           data: {
             produkId: id,
             userId: user.id,
-            jenisHarga: "JUAL",
-            hargaLama: existing.hargaJual,
-            hargaBaru: data.hargaJual,
+            jenisHarga,
+            hargaLama: existing[field],
+            hargaBaru: data[field],
           },
         });
       }

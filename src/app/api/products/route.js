@@ -3,11 +3,12 @@ import { prisma } from "../../../lib/prisma";
 
 const productInclude = { kategori: true, satuan: true };
 
-export async function GET() {
+export async function GET(request) {
   try {
     await requireUser();
+    const forSale = new URL(request.url).searchParams.get("untukPenjualan") === "true";
     const products = await prisma.produk.findMany({
-      where: { aktif: true },
+      where: { aktif: true, ...(forSale ? { stok: { gt: 0 } } : {}) },
       include: productInclude,
       orderBy: { namaProduk: "asc" },
     });
