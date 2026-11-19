@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useId } from "react";
+import { useCallback, useEffect, useMemo, useState, useId, useRef } from "react";
+import Image from "next/image";
 import { calculatePrice, getCalculatorHpp } from "../lib/pricing";
 import { MIN_PASSWORD_LENGTH } from "../lib/user-validation";
 
@@ -25,6 +26,7 @@ const currency = new Intl.NumberFormat("id-ID", {
   currency: "IDR",
   maximumFractionDigits: 0,
 });
+const receiptNumber = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
 
 function money(value) {
   return currency.format(Number(value || 0));
@@ -84,8 +86,36 @@ async function request(url, options) {
   return result;
 }
 
+function Icon({ name, size = 18 }) {
+  const paths = {
+    login: <><path d="M10 3H4a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h6" /><path d="m15 16 4-4-4-4" /><path d="M19 12H8" /></>,
+    logout: <><path d="M14 3h6a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-6" /><path d="m9 16-4-4 4-4" /><path d="M5 12h12" /></>,
+    save: <><path d="M5 3h12l4 4v14H3V3h2Z" /><path d="M7 3v6h9V3" /><path d="M7 21v-8h10v8" /></>,
+    cancel: <><path d="m6 6 12 12" /><path d="M18 6 6 18" /></>,
+    plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
+    minus: <path d="M5 12h14" />,
+    trash: <><path d="M3 6h18" /><path d="M8 6V3h8v3" /><path d="m19 6-1 15H6L5 6" /><path d="M10 10v7" /><path d="M14 10v7" /></>,
+    edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" /></>,
+    archive: <><path d="M3 4h18v4H3z" /><path d="M5 8v12h14V8" /><path d="M9 12h6" /></>,
+    eye: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    eyeOff: <><path d="m3 3 18 18" /><path d="M10.6 6.1A11.8 11.8 0 0 1 12 6c6.5 0 10 6 10 6a16 16 0 0 1-2.1 2.8" /><path d="M6.2 8.2A16 16 0 0 0 2 12s3.5 6 10 6a9.5 9.5 0 0 0 3.1-.5" /></>,
+    download: <><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></>,
+    upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 21h14" /></>,
+    preview: <><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" /><path d="M12 9v6" /><path d="M9 12h6" /></>,
+    password: <><rect x="3" y="10" width="18" height="11" rx="2" /><path d="M7 10V7a5 5 0 0 1 10 0v3" /></>,
+    user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+    restore: <><path d="M4 4v6h6" /><path d="M5.5 15a8 8 0 1 0 2-8.5L4 10" /></>,
+    report: <><path d="M4 3h16v18H4z" /><path d="M8 17v-4" /><path d="M12 17V7" /><path d="M16 17v-6" /></>,
+    cart: <><circle cx="9" cy="20" r="1" /><circle cx="18" cy="20" r="1" /><path d="M3 4h2l2.5 11h11l2-8H6" /></>,
+    price: <><path d="M20 12 12 20l-8-8V4h8Z" /><circle cx="8" cy="8" r="1" /></>,
+    print: <><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" /><path d="M18 12h.01" /></>,
+  };
+  return <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
 export default function Home() {
   const [user, setUser] = useState(null);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [screen, setScreen] = useState("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [data, setData] = useState([]);
@@ -126,6 +156,8 @@ export default function Home() {
   const [priceDraft, setPriceDraft] = useState(null);
   const [priceError, setPriceError] = useState("");
   const [editingProduct, setEditingProduct] = useState(null);
+  const editProductFormRef = useRef(null);
+  const [receiptSale, setReceiptSale] = useState(null);
   const [userEditor, setUserEditor] = useState(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
   const [showEditorPassword, setShowEditorPassword] = useState(false);
@@ -148,6 +180,12 @@ export default function Home() {
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (editingProduct) {
+      editProductFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [editingProduct]);
 
   function recalculatePrice(nextForm) {
     if (!nextForm.produkId) {
@@ -636,13 +674,14 @@ export default function Home() {
   async function checkout() {
     setBusy(true);
     try {
-      await request("/api/sales", {
+      const { sale } = await request("/api/sales", {
         method: "POST",
         body: JSON.stringify({
           ...saleSettings,
           items: cart.map(({ id, quantity }) => ({ produkId: id, jumlah: quantity })),
         }),
       });
+      setReceiptSale(sale);
       setCart([]);
       setSaleSettings({
         jenis: "OFFLINE",
@@ -719,8 +758,15 @@ export default function Home() {
           <h2>Masuk ke akun Anda</h2>
           <p className="muted">Gunakan akun yang sudah didaftarkan pemilik.</p>
           <label>Username<input name="username" autoComplete="username" required /></label>
-          <label>Password<input name="password" type="password" autoComplete="current-password" required /></label>
-          <button className="button primary full" disabled={busy}>{busy ? "Memeriksa…" : "Masuk ke sistem"} <span>→</span></button>
+          <label>Password
+            <span className="login-password-input">
+              <input name="password" type={showLoginPassword ? "text" : "password"} autoComplete="current-password" required />
+              <button type="button" className="button ghost icon-button" aria-label={showLoginPassword ? "Sembunyikan password" : "Lihat password"} title={showLoginPassword ? "Sembunyikan password" : "Lihat password"} aria-pressed={showLoginPassword} onClick={() => setShowLoginPassword((visible) => !visible)}>
+                <Icon name={showLoginPassword ? "eyeOff" : "eye"} />
+              </button>
+            </span>
+          </label>
+          <button className="button primary full" disabled={busy}>{busy ? "Memeriksa…" : "Masuk"}</button>
           <p className="login-foot">Akses hanya untuk pengguna Apotek Risa.</p>
         </form>
         {notice && <div className="toast">{notice}</div>}
@@ -739,6 +785,7 @@ export default function Home() {
       : "HPP diambil dari database.";
 
   return (
+    <>
     <div className="app-shell">
       {mobileNavOpen && <button className="sidebar-backdrop" type="button" aria-label="Tutup menu navigasi" onClick={() => setMobileNavOpen(false)} />}
       <aside id="main-sidebar" className={`sidebar ${mobileNavOpen ? "mobile-open" : ""}`}>
@@ -749,14 +796,14 @@ export default function Home() {
         </a>
         <p className="nav-caption">MENU UTAMA</p>
         <nav>{visibleMenus.map(([id, title, icon]) => (
-          <button key={id} className={`nav-item ${screen === id ? "selected" : ""}`} onClick={() => { setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
-            <span className="nav-icon">{icon}</span>{title}
+          <button key={id} className={`nav-item ${screen === id ? "selected" : ""}`} aria-label={title} title={title} onClick={() => { setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
+            <span className="nav-icon" aria-hidden="true">{icon}</span>{title}
           </button>
         ))}</nav>
         <div className="sidebar-note"><span className="status-dot" /> Database terhubung melalui server</div>
       </aside>
       <main className="main-area">
-        <header className="topbar"><div className="topbar-start"><button className="menu-toggle" type="button" aria-label={mobileNavOpen ? "Tutup menu navigasi" : "Buka menu navigasi"} aria-controls="main-sidebar" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}><span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span></button><div className="breadcrumb">Apotek Risa <span>/</span> {heading}</div></div><div className="profile"><span className="avatar">{user.nama.slice(0, 1).toUpperCase()}</span><div><b>{user.nama}</b><small>{user.role === "PEMILIK" ? "Pemilik Apotek" : "Kasir"}</small></div><button className="button ghost logout" onClick={logout}>Keluar</button></div></header>
+        <header className="topbar"><div className="topbar-start"><button className="menu-toggle" type="button" aria-label={mobileNavOpen ? "Tutup menu navigasi" : "Buka menu navigasi"} aria-controls="main-sidebar" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}><span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span></button><div className="breadcrumb">Apotek Risa <span>/</span> {heading}</div></div><div className="profile"><span className="avatar">{user.nama.slice(0, 1).toUpperCase()}</span><div><b>{user.nama}</b><small>{user.role === "PEMILIK" ? "Pemilik Apotek" : "Kasir"}</small></div><button className="button ghost logout icon-button" onClick={logout} aria-label="Keluar" title="Keluar"><Icon name="logout" /></button></div></header>
         <section className="page-heading"><div><p className="eyebrow">APOTEK RISA / OPERASIONAL</p><h1>{heading}</h1><p className="muted">{screen === "dashboard" ? "Pantau aktivitas dan kondisi persediaan apotek." : `Kelola ${heading.toLocaleLowerCase("id-ID")} dengan data dari database.`}</p></div><span className="live-pill"><i /> DATA LANGSUNG</span></section>
 
         {screen === "dashboard" && <Dashboard dashboard={dashboard} money={money} date={date} />}
@@ -772,9 +819,9 @@ export default function Home() {
               <Field name="hargaJual" label="Harga jual" type="number" min="0" required />
               <Field name="stok" label="Stok awal" type="number" min="0" required />
               <Field name="stokMinimum" label="Batas stok menipis" type="number" min="0" required />
-            </div><button className="button primary" disabled={busy}>Simpan obat</button>
+            </div><button className="button primary icon-button" disabled={busy} aria-label="Simpan obat" title="Simpan obat"><Icon name="save" /></button>
           </form>}
-          {editingProduct && <form className="panel product-form" onSubmit={saveProductEdit}>
+          {editingProduct && <form ref={editProductFormRef} className="panel product-form" onSubmit={saveProductEdit}>
             <div className="panel-title"><div><h2>Ubah produk</h2><p>{editingProduct.namaProduk}</p></div></div>
             <div className="form-grid">
               <Field name="namaProduk" label="Nama obat" defaultValue={editingProduct.namaProduk} required />
@@ -786,8 +833,8 @@ export default function Home() {
               <Field name="hargaJual" label="Harga jual" type="number" min="0" step="0.01" defaultValue={editingProduct.hargaJual} required />
               <Field name="stokMinimum" label="Batas stok menipis" type="number" min="0" step="1" defaultValue={editingProduct.stokMinimum} required />
             </div>
-            <button className="button primary" disabled={busy}>Simpan perubahan</button>{" "}
-            <button type="button" className="button ghost" onClick={() => setEditingProduct(null)}>Batal</button>
+            <button className="button primary icon-button" disabled={busy} aria-label="Simpan perubahan" title="Simpan perubahan"><Icon name="save" /></button>{" "}
+            <button type="button" className="button ghost icon-button" onClick={() => setEditingProduct(null)} aria-label="Batal" title="Batal"><Icon name="cancel" /></button>
           </form>}
           <div className="panel"><PanelTitle title="Katalog obat" count={`${filtered.length} produk`} /><Search value={query} onChange={setQuery} />
             <ProductsTable products={filtered} money={money} onArchive={archiveProduct} onPriceChange={changePrice} onEdit={setEditingProduct} owner={user.role === "PEMILIK"} />
@@ -812,7 +859,7 @@ export default function Home() {
           {priceResult && <div className="panel">
             <PanelTitle title="Hasil kalkulasi" count={data.find((item) => item.id === priceDraft?.produkId)?.namaProduk || "Produk"} />
             <div className="price-result"><span>Harga jual saat ini: <b>{money(selectedPriceProduct?.hargaJual)}</b></span><span>Harga jual yang disarankan</span><strong>{money(priceResult.hargaJual)}</strong><span>Laba kotor per unit: <b>{money(priceResult.labaKotor)}</b></span><span>Estimasi laba bersih per unit: <b>{money(priceResult.labaBersih)}</b></span></div>
-            <button className="button primary" disabled={busy || !priceDraft} onClick={saveSuggestedPrice}>{busy ? "Menyimpan…" : "Simpan harga ke produk"}</button>
+            <button className="button primary icon-button" disabled={busy || !priceDraft} onClick={saveSuggestedPrice} aria-label={busy ? "Menyimpan" : "Simpan harga ke produk"} title={busy ? "Menyimpan" : "Simpan harga ke produk"}><Icon name="save" /></button>
           </div>}
         </>}
         {screen === "sales" && <div className="sales-layout">
@@ -821,10 +868,12 @@ export default function Home() {
               const found = items.find((item) => item.id === product.id);
               if (found) return items.map((item) => item.id === product.id ? { ...item, quantity: Math.min(item.quantity + 1, product.stok) } : item);
               return [...items, { id: product.id, quantity: 1, product }];
-            })}>Tambah</button></div></div>)}</div>
+            })} aria-label={`Tambah ${product.namaProduk}`} title={`Tambah ${product.namaProduk}`}><Icon name="plus" /></button></div></div>)}</div>
           </div>
           <div className="panel cart-panel"><PanelTitle title="Keranjang" count={`${cart.reduce((sum, item) => sum + item.quantity, 0)} item`} />
-            {cart.length ? cart.map((item) => <div className="cart-row" key={item.id}><div><b>{item.product.namaProduk}</b><small>{money(item.product.hargaJual)} × {item.quantity}</small></div><div className="quantity"><button aria-label="Kurangi" onClick={() => setCart((items) => items.map((entry) => entry.id === item.id ? { ...entry, quantity: entry.quantity - 1 } : entry).filter((entry) => entry.quantity > 0))}>−</button><span>{item.quantity}</span><button aria-label="Tambah" onClick={() => setCart((items) => items.map((entry) => entry.id === item.id ? { ...entry, quantity: Math.min(entry.quantity + 1, entry.product.stok) } : entry))}>＋</button></div></div>) : <div className="empty-state">Pilih obat untuk memulai transaksi.</div>}
+            <div className="cart-items" aria-label="Daftar item keranjang">
+              {cart.length ? cart.map((item) => <div className="cart-row" key={item.id}><div><b>{item.product.namaProduk}</b><small>{money(item.product.hargaJual)} × {item.quantity}</small></div><div className="quantity"><button aria-label={`Kurangi ${item.product.namaProduk}`} title={`Kurangi ${item.product.namaProduk}`} onClick={() => setCart((items) => items.map((entry) => entry.id === item.id ? { ...entry, quantity: entry.quantity - 1 } : entry).filter((entry) => entry.quantity > 0))}><Icon name="minus" size={14} /></button><span>{item.quantity}</span><button aria-label={`Tambah ${item.product.namaProduk}`} title={`Tambah ${item.product.namaProduk}`} onClick={() => setCart((items) => items.map((entry) => entry.id === item.id ? { ...entry, quantity: Math.min(entry.quantity + 1, entry.product.stok) } : entry))}><Icon name="plus" size={14} /></button></div></div>) : <div className="empty-state">Pilih obat untuk memulai transaksi.</div>}
+            </div>
             <div className="form-grid sale-options">
               <label>Jenis transaksi<select name="jenis" value={saleSettings.jenis} onChange={changeSaleSetting}><option value="OFFLINE">Offline</option><option value="ONLINE">Online</option></select></label>
               <Field name="potongan" label="Potongan transaksi" type="number" min="0" step="0.01" value={saleSettings.potongan} onChange={changeSaleSetting} />
@@ -835,10 +884,10 @@ export default function Home() {
               <Field name="biayaGratisOngkir" label="Gratis ongkir / unit" type="number" min="0" step="0.01" value={saleSettings.biayaGratisOngkir} onChange={changeSaleSetting} />
             </div>
             <div className="cart-total"><span>Total pembayaran</span><b>{money(Math.max(0, cart.reduce((sum, item) => sum + Number(item.product.hargaJual) * item.quantity, 0) - Number(saleSettings.potongan || 0)))}</b></div>
-            <button className="button primary full" disabled={!cart.length || busy} onClick={checkout}>{busy ? "Memproses…" : "Selesaikan transaksi"}</button>
+            <button className="button primary full icon-button" disabled={!cart.length || busy} onClick={checkout} aria-label={busy ? "Memproses transaksi" : "Selesaikan transaksi"} title={busy ? "Memproses transaksi" : "Selesaikan transaksi"}><Icon name="cart" /></button>
           </div>
         </div>}
-        {screen === "history" && <div className="panel"><PanelTitle title="Transaksi terbaru" count={`${filtered.length} transaksi`} /><Search value={query} onChange={setQuery} /><SalesTable sales={filtered} money={money} date={date} /></div>}
+        {screen === "history" && <div className="panel"><PanelTitle title="Transaksi terbaru" count={`${filtered.length} transaksi`} /><Search value={query} onChange={setQuery} /><SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} /></div>}
         {screen === "expenses" && user.role === "PEMILIK" && <>
           <form className="panel product-form" onSubmit={createExpense}>
             <div className="panel-title"><div><h2>Catat biaya operasional</h2><p>Biaya pada periode ini akan mengurangi laba bersih laporan.</p></div></div>
@@ -848,7 +897,7 @@ export default function Home() {
               <Field name="deskripsi" label="Keterangan" maxLength="255" required />
               <Field name="jumlah" label="Jumlah (Rp)" type="number" min="0.01" step="0.01" required />
             </div>
-            <button className="button primary" disabled={busy}>Simpan biaya</button>
+            <button className="button primary icon-button" disabled={busy} aria-label="Simpan biaya" title="Simpan biaya"><Icon name="save" /></button>
           </form>
           <div className="panel"><PanelTitle title="Riwayat biaya operasional" count={`${filtered.length} biaya`} /><Search value={query} onChange={setQuery} /><ExpensesTable expenses={filtered} money={money} date={date} onDelete={deleteExpense} /></div>
         </>}
@@ -859,7 +908,7 @@ export default function Home() {
               <label>Periode<select value={reportFilter.period} onChange={(event) => setReportFilter((current) => ({ ...current, period: event.target.value }))}><option value="day">Harian</option><option value="month">Bulanan</option><option value="year">Tahunan</option></select></label>
               <label>Tanggal acuan<input type="date" value={reportFilter.date} onChange={(event) => setReportFilter((current) => ({ ...current, date: event.target.value }))} required /></label>
             </div>
-            <button className="button primary" disabled={busy}>{busy ? "Memuat…" : "Tampilkan laporan"}</button>
+            <button className="button primary icon-button" disabled={busy} aria-label={busy ? "Memuat laporan" : "Tampilkan laporan"} title={busy ? "Memuat laporan" : "Tampilkan laporan"}><Icon name="report" /></button>
           </form>
           {report && <>
             <div className="metric-grid report-metrics">
@@ -875,7 +924,7 @@ export default function Home() {
         {screen === "excel" && user.role === "PEMILIK" && <>
           <div className="panel">
             <div className="panel-title"><div><h2>Ekspor katalog produk</h2><p>Unduh produk aktif sebagai workbook .xlsx untuk arsip atau penyuntingan.</p></div></div>
-            <button type="button" className="button primary" disabled={busy} onClick={exportProductsExcel}>Unduh produk.xlsx</button>
+            <button type="button" className="button primary icon-button" disabled={busy} onClick={exportProductsExcel} aria-label="Unduh produk Excel" title="Unduh produk Excel"><Icon name="download" /></button>
           </div>
           <form className="panel product-form" onSubmit={previewProductsExcel}>
             <div className="panel-title"><div><h2>Impor produk Excel</h2><p>Pratinjau dan perbaiki semua validasi sebelum menyimpan. Pembaruan tidak mengubah stok produk yang sudah ada.</p></div></div>
@@ -886,13 +935,13 @@ export default function Home() {
               }} required /></label>
             </div>
             <p className="muted">Maksimal 5 MB dan 5.000 baris. Header harus mengikuti urutan kolom pada workbook ekspor.</p>
-            <button className="button primary" disabled={busy || !excelFile}>{busy ? "Memvalidasi…" : "Pratinjau impor"}</button>
+            <button className="button primary icon-button" disabled={busy || !excelFile} aria-label={busy ? "Memvalidasi impor" : "Pratinjau impor"} title={busy ? "Memvalidasi impor" : "Pratinjau impor"}><Icon name="preview" /></button>
             {excelPreview && <div className="excel-preview">
               {excelPreview.error && <p className="badge badge-warning">{excelPreview.error}</p>}
               <div className="panel-title"><div><h2>Hasil pratinjau</h2><p>{excelPreview.filename || excelFile?.name} · {excelPreview.rowCount || 0} baris</p></div><span className="count-pill">{excelPreview.counts?.errors || 0} perlu diperbaiki</span></div>
               <p className="muted">Baru: {excelPreview.counts?.create || 0} · Diperbarui: {excelPreview.counts?.update || 0} · Ambigu: {excelPreview.counts?.ambiguous || 0}</p>
               <ExcelImportTable rows={excelPreview.rows || []} />
-              <button type="button" className="button secondary" disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)} onClick={commitProductsExcel}>Simpan impor</button>
+              <button type="button" className="button secondary icon-button" disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)} onClick={commitProductsExcel} aria-label="Simpan impor" title="Simpan impor"><Icon name="upload" /></button>
             </div>}
           </form>
         </>}
@@ -921,20 +970,20 @@ export default function Home() {
                   <label>Kedaluwarsa<input type="date" required value={item.tanggalKedaluwarsa} onChange={(event) => setStockBatchItems((items) => items.map((entry, itemIndex) => itemIndex === index ? { ...entry, tanggalKedaluwarsa: event.target.value } : entry))} /></label>
                 </>}
                 <label>Jumlah fisik<input type="number" min="0" max="1000000" required value={item.jumlahFisik} onChange={(event) => setStockBatchItems((items) => items.map((entry, itemIndex) => itemIndex === index ? { ...entry, jumlahFisik: event.target.value } : entry))} /></label>
-                {!item.batchId && <button type="button" className="button ghost" onClick={() => setStockBatchItems((items) => items.filter((_, itemIndex) => itemIndex !== index))}>Hapus batch</button>}
+                {!item.batchId && <button type="button" className="button ghost icon-button" onClick={() => setStockBatchItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} aria-label="Hapus batch" title="Hapus batch"><Icon name="trash" /></button>}
               </div>)}
               {!stockBatchItems.length && <p className="empty-state">Belum ada batch berstok. Tambahkan batch beserta tanggal kedaluwarsa sesuai kemasan fisik.</p>}
-              <button type="button" className="button secondary" onClick={() => setStockBatchItems((items) => [...items, { nomorBatch: "", tanggalKedaluwarsa: "", jumlahFisik: "0" }])}>Tambah batch fisik</button>
+              <button type="button" className="button secondary icon-button" onClick={() => setStockBatchItems((items) => [...items, { nomorBatch: "", tanggalKedaluwarsa: "", jumlahFisik: "0" }])} aria-label="Tambah batch fisik" title="Tambah batch fisik"><Icon name="plus" /></button>
             </div>}
-            <button className="button primary" disabled={busy || !stockProductId || !stockBatchItems.length}>Simpan opname</button>
+            <button className="button primary icon-button" disabled={busy || !stockProductId || !stockBatchItems.length} aria-label="Simpan opname" title="Simpan opname"><Icon name="save" /></button>
           </form>
           <div className="panel"><PanelTitle title="Riwayat stock opname" count={`${filtered.length} catatan`} /><Search value={query} onChange={setQuery} /><StockTable records={filtered} date={date} /></div>
         </>}
-        {screen === "expiry" && <><form className="panel stock-form" onSubmit={receiveBatch}><div className="panel-title"><div><h2>Terima barang masuk</h2><p>Catat batch baru; jumlahnya otomatis ditambahkan ke stok.</p></div></div><div className="form-grid"><label>Obat<select name="produkId" required defaultValue=""><option value="" disabled>Pilih obat</option>{stockProducts.map((product) => <option value={product.id} key={product.id}>{product.namaProduk}</option>)}</select></label><Field name="nomorBatch" label="Nomor batch" required /><Field name="tanggalKedaluwarsa" label="Tanggal kedaluwarsa" type="date" required /><Field name="jumlah" label="Jumlah diterima" type="number" min="1" required /><Field name="hargaBeli" label="Harga beli terbaru (opsional)" type="number" min="0" step="0.01" /><Field name="hpp" label="HPP terbaru (opsional)" type="number" min="0" step="0.01" /></div><button className="button primary" disabled={busy}>Simpan barang masuk</button></form><div className="panel"><PanelTitle title="Batch kedaluwarsa dan batas retur" count={`${filtered.length} batch`} /><Search value={query} onChange={setQuery} /><ExpiryTable batches={filtered} date={date} /></div></>}
+        {screen === "expiry" && <><form className="panel stock-form" onSubmit={receiveBatch}><div className="panel-title"><div><h2>Terima barang masuk</h2><p>Catat batch baru; jumlahnya otomatis ditambahkan ke stok.</p></div></div><div className="form-grid"><label>Obat<select name="produkId" required defaultValue=""><option value="" disabled>Pilih obat</option>{stockProducts.map((product) => <option value={product.id} key={product.id}>{product.namaProduk}</option>)}</select></label><Field name="nomorBatch" label="Nomor batch" required /><Field name="tanggalKedaluwarsa" label="Tanggal kedaluwarsa" type="date" required /><Field name="jumlah" label="Jumlah diterima" type="number" min="1" required /><Field name="hargaBeli" label="Harga beli terbaru (opsional)" type="number" min="0" step="0.01" /><Field name="hpp" label="HPP terbaru (opsional)" type="number" min="0" step="0.01" /></div><button className="button primary icon-button" disabled={busy} aria-label="Simpan barang masuk" title="Simpan barang masuk"><Icon name="save" /></button></form><div className="panel"><PanelTitle title="Batch kedaluwarsa dan batas retur" count={`${filtered.length} batch`} /><Search value={query} onChange={setQuery} /><ExpiryTable batches={filtered} date={date} /></div></>}
         {screen === "backup" && user.role === "PEMILIK" && <>
           <div className="panel product-form">
             <div className="panel-title"><div><h2>Backup database</h2><p>File mencakup data pengguna untuk memulihkan akun. Simpan terenkripsi dan jangan bagikan.</p></div></div>
-            <button className="button primary" disabled={busy} onClick={downloadBackup}>{busy ? "Memproses…" : "Unduh backup JSON"}</button>
+            <button className="button primary icon-button" disabled={busy} onClick={downloadBackup} aria-label={busy ? "Memproses backup" : "Unduh backup JSON"} title={busy ? "Memproses backup" : "Unduh backup JSON"}><Icon name="download" /></button>
           </div>
           <form className="panel product-form" onSubmit={restoreBackup}>
             <div className="panel-title"><div><h2>Restore database</h2><p>Restore akan mengganti seluruh data saat ini, termasuk akun, produk, transaksi, dan riwayat.</p></div></div>
@@ -942,7 +991,7 @@ export default function Home() {
               <label>File backup JSON<input type="file" accept=".json,application/json" onChange={(event) => setBackupFile(event.target.files?.[0] || null)} required /></label>
               <Field name="restoreConfirmation" label={'Ketik "RESTORE" untuk mengonfirmasi'} value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} required />
             </div>
-            <button className="button secondary" disabled={busy || restoreConfirmation !== "RESTORE" || !backupFile}>{busy ? "Memulihkan…" : "Ganti data dengan backup"}</button>
+            <button className="button secondary icon-button" disabled={busy || restoreConfirmation !== "RESTORE" || !backupFile} aria-label={busy ? "Memulihkan backup" : "Ganti data dengan backup"} title={busy ? "Memulihkan backup" : "Ganti data dengan backup"}><Icon name="restore" /></button>
           </form>
         </>}
         {screen === "users" && user.role === "PEMILIK" && <>
@@ -954,7 +1003,7 @@ export default function Home() {
               <PasswordField name="password" label={`Kata sandi (min. ${MIN_PASSWORD_LENGTH} karakter)`} minLength={MIN_PASSWORD_LENGTH} required show={showCreatePassword} onToggle={() => setShowCreatePassword((value) => !value)} />
               <input type="hidden" name="role" value="KASIR" />
             </div>
-            <button className="button primary" disabled={busy}>Buat pengguna</button>
+            <button className="button primary icon-button" disabled={busy} aria-label="Buat pengguna" title="Buat pengguna"><Icon name="user" /></button>
           </form>
           {userEditor && <form className="panel user-form" onSubmit={saveCashier}>
             <div className="panel-title"><div>
@@ -970,8 +1019,8 @@ export default function Home() {
                 : <PasswordField name="password" label={`Kata sandi baru (min. ${MIN_PASSWORD_LENGTH} karakter)`} minLength={MIN_PASSWORD_LENGTH} required show={showEditorPassword} onToggle={() => setShowEditorPassword((value) => !value)} />}
             </div>
             <div className="user-form-actions">
-              <button className="button primary" disabled={busy}>{userEditor.mode === "edit" ? "Simpan perubahan" : "Perbarui kata sandi"}</button>
-              <button type="button" className="button ghost" onClick={() => setUserEditor(null)}>Batal</button>
+              <button className="button primary icon-button" disabled={busy} aria-label={userEditor.mode === "edit" ? "Simpan perubahan" : "Perbarui kata sandi"} title={userEditor.mode === "edit" ? "Simpan perubahan" : "Perbarui kata sandi"}><Icon name={userEditor.mode === "edit" ? "save" : "password"} /></button>
+              <button type="button" className="button ghost icon-button" onClick={() => setUserEditor(null)} aria-label="Batal" title="Batal"><Icon name="cancel" /></button>
             </div>
           </form>}
           <div className="panel"><PanelTitle title="Pengguna terdaftar" count={`${filtered.length} pengguna`} /><Search value={query} onChange={setQuery} />
@@ -982,6 +1031,12 @@ export default function Home() {
       </main>
       {notice && <div className="toast">{notice}</div>}
     </div>
+    {receiptSale && <Receipt
+      sale={receiptSale}
+      onPrint={() => window.print()}
+      onClose={() => setReceiptSale(null)}
+    />}
+    </>
   );
 }
 
@@ -995,7 +1050,7 @@ function PasswordField({ name, label, minLength, required, show, onToggle }) {
     <label htmlFor={inputId}>{label}</label>
     <div className="password-input">
       <input id={inputId} name={name} type={show ? "text" : "password"} minLength={minLength} maxLength="200" autoComplete="new-password" required={required} />
-      <button type="button" className="button ghost" aria-pressed={show} onClick={onToggle}>{show ? "Sembunyikan" : "Tampilkan"}</button>
+      <button type="button" className="button ghost icon-button password-toggle" aria-label={show ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} title={show ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"} aria-pressed={show} onClick={onToggle}><Icon name={show ? "eyeOff" : "eye"} /></button>
     </div>
   </div>;
 }
@@ -1032,16 +1087,74 @@ function Metric({ label, value, note, icon, warning }) {
 
 function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange, onEdit, owner }) {
   return <div className="table-wrap"><table><thead><tr><th>OBAT</th><th>KATEGORI</th><th>HPP</th><th>HARGA JUAL</th><th>STOK</th><th>STATUS</th>{owner && <th />}</tr></thead><tbody>
-    {products.map((product) => <tr key={product.id}><td><b>{product.namaProduk}</b><small className="cell-sub">{product.kodeBarang || "Tanpa kode"} · {product.satuan.kode}</small></td><td>{product.kategori.nama}</td><td>{formatMoney(product.hpp)}</td><td>{formatMoney(product.hargaJual)} {owner && <button className="text-button" onClick={() => onPriceChange(product)}>Ubah harga</button>}</td><td>{product.stok}</td><td><span className={`badge ${product.stok <= product.stokMinimum ? "badge-warning" : ""}`}>{product.stok <= product.stokMinimum ? "Menipis" : "Tersedia"}</span></td>{owner && <td><button className="text-button" onClick={() => onEdit(product)}>Edit</button>{" · "}<button className="text-button" onClick={() => onArchive(product.id)}>Arsipkan</button></td>}</tr>)}
+    {products.map((product) => <tr key={product.id}><td><b>{product.namaProduk}</b><small className="cell-sub">{product.kodeBarang || "Tanpa kode"} · {product.satuan.kode}</small></td><td>{product.kategori.nama}</td><td>{formatMoney(product.hpp)}</td><td>{formatMoney(product.hargaJual)} {owner && <button type="button" className="icon-button text-button" onClick={() => onPriceChange(product)} aria-label={`Ubah harga ${product.namaProduk}`} title={`Ubah harga ${product.namaProduk}`}><Icon name="price" /></button>}</td><td>{product.stok}</td><td><span className={`badge ${product.stok <= product.stokMinimum ? "badge-warning" : ""}`}>{product.stok <= product.stokMinimum ? "Menipis" : "Tersedia"}</span></td>{owner && <td><div className="table-actions"><button type="button" className="icon-button text-button" onClick={() => onEdit(product)} aria-label={`Edit ${product.namaProduk}`} title={`Edit ${product.namaProduk}`}><Icon name="edit" /></button><button type="button" className="icon-button text-button" onClick={() => onArchive(product.id)} aria-label={`Arsipkan ${product.namaProduk}`} title={`Arsipkan ${product.namaProduk}`}><Icon name="archive" /></button></div></td>}</tr>)}
     {!products.length && <EmptyRow colSpan={owner ? 7 : 6} />}
   </tbody></table></div>;
 }
 
-function SalesTable({ sales, money: formatMoney, date: formatDate }) {
-  return <div className="table-wrap"><table><thead><tr><th>NO. TRANSAKSI</th><th>TANGGAL</th><th>JENIS</th><th>KASIR</th><th>ITEM</th><th>TOTAL</th></tr></thead><tbody>
-    {sales.map((sale) => <tr key={sale.id}><td><b>{sale.kodeTransaksi}</b></td><td>{formatDate(sale.tanggal)}</td><td>{sale.jenis === "ONLINE" ? "Online" : "Offline"}</td><td>{sale.user?.nama || "—"}</td><td>{sale.detail?.reduce((sum, detail) => sum + detail.jumlah, 0) ?? 0}</td><td><b>{formatMoney(sale.total)}</b></td></tr>)}
-    {!sales.length && <EmptyRow colSpan={6} />}
+function SalesTable({ sales, money: formatMoney, date: formatDate, onReceipt }) {
+  return <div className="table-wrap"><table><thead><tr><th>NO. TRANSAKSI</th><th>TANGGAL</th><th>JENIS</th><th>KASIR</th><th>ITEM</th><th>TOTAL</th>{onReceipt && <th>STRUK</th>}</tr></thead><tbody>
+    {sales.map((sale) => <tr key={sale.id}><td><b>{sale.kodeTransaksi}</b></td><td>{formatDate(sale.tanggal)}</td><td>{sale.jenis === "ONLINE" ? "Online" : "Offline"}</td><td>{sale.user?.nama || "—"}</td><td>{sale.detail?.reduce((sum, detail) => sum + detail.jumlah, 0) ?? 0}</td><td><b>{formatMoney(sale.total)}</b></td>{onReceipt && <td><button type="button" className="icon-button text-button" onClick={() => onReceipt(sale)} aria-label={`Lihat struk ${sale.kodeTransaksi}`} title={`Lihat struk ${sale.kodeTransaksi}`}><Icon name="print" /></button></td>}</tr>)}
+    {!sales.length && <EmptyRow colSpan={onReceipt ? 7 : 6} />}
   </tbody></table></div>;
+}
+
+function Receipt({ sale, onPrint, onClose }) {
+  const details = sale.detail || [];
+  const subtotal = details.reduce((sum, item) => sum + Number(item.subtotal), 0);
+  const otherFees = Number(sale.biayaAdmin || 0)
+    + Number(sale.biayaPengemasan || 0)
+    + Number(sale.biayaLayanan || 0)
+    + Number(sale.biayaGratisOngkir || 0);
+  const transactionDate = new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(new Date(sale.tanggal));
+
+  return <div className="receipt-overlay" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
+    <div className="receipt-dialog">
+      <div className="receipt-actions">
+        <button type="button" className="button primary icon-button" onClick={onPrint} aria-label="Cetak struk" title="Cetak struk"><Icon name="print" /></button>
+        <button type="button" className="button ghost icon-button" onClick={onClose} aria-label="Tutup struk" title="Tutup struk"><Icon name="cancel" /></button>
+      </div>
+      <article className="receipt-paper">
+        <header className="receipt-header">
+          <Image src="/apotek.jpg" alt="Logo Apotek Risa" width={72} height={72} />
+          <div className="receipt-header-copy">
+            <h2 id="receipt-title">APOTEK RISA</h2>
+            <p>JL. TEROPONG PERUM GRIYA<br />MASMUR 1 BLOK B KAVLING NO 7</p>
+            <p>Telp: 0882-7145-7114</p>
+          </div>
+        </header>
+        <div className="receipt-meta">
+          <div><span>No. Transaksi</span><span aria-hidden="true">:</span><b>{sale.kodeTransaksi}</b></div>
+          <div><span>Tanggal</span><span aria-hidden="true">:</span><b>{transactionDate}</b></div>
+          <div><span>Pelanggan</span><span aria-hidden="true">:</span><b>UMUM</b></div>
+        </div>
+        <section className="receipt-lines" aria-label="Rincian item">
+          <h3>Item</h3>
+          {details.map((item) => <div className="receipt-item" key={item.id}>
+            <b className="receipt-item-name">{item.produk?.namaProduk || "Produk tidak tersedia"}</b>
+            <div className="receipt-item-price">
+              <span>{item.jumlah} {item.produk?.satuan?.kode || ""} x {receiptNumber.format(Number(item.hargaSatuan || 0))}</span>
+              <b>{receiptNumber.format(Number(item.subtotal || 0))}</b>
+            </div>
+          </div>)}
+        </section>
+        <div className="receipt-summary">
+          <span>Subtotal</span><b>{receiptNumber.format(subtotal)}</b>
+          <span>Potongan</span><b>{receiptNumber.format(Number(sale.potongan || 0))}</b>
+          <span>Pajak</span><b>{receiptNumber.format(Number(sale.biayaPajak || 0))}</b>
+          <span>Biaya Lain</span><b>{receiptNumber.format(otherFees)}</b>
+          <hr className="receipt-total-divider" />
+          <strong>TOTAL</strong><strong>{receiptNumber.format(Number(sale.total || 0))}</strong>
+        </div>
+        <p className="receipt-thanks">Terima kasih atas<br />kunjungan Anda</p>
+      </article>
+    </div>
+  </div>;
 }
 
 function StockTable({ records, date: formatDate }) {
@@ -1060,7 +1173,7 @@ function ExpiryTable({ batches, date: formatDate }) {
 
 function UsersTable({ users, ownerId, onEdit, onToggle, onDelete }) {
   return <div className="table-wrap"><table><thead><tr><th>NAMA</th><th>USERNAME</th><th>PERAN</th><th>STATUS</th><th>DIBUAT</th><th>AKSI</th></tr></thead><tbody>
-    {users.map((item) => <tr key={item.id}><td><b>{item.nama}</b></td><td>{item.username}</td><td>{item.role === "PEMILIK" ? "Pemilik" : "Kasir"}</td><td><span className={`badge ${item.aktif ? "" : "badge-warning"}`}>{item.aktif ? "Aktif" : "Nonaktif"}</span></td><td>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.dibuatPada))}</td><td>{item.role === "KASIR" ? <><button className="text-button" onClick={() => onEdit(item, "edit")}>Edit</button>{" · "}<button className="text-button" onClick={() => onEdit(item, "password")}>Atur sandi</button>{" · "}<button className="text-button" onClick={() => onToggle(item)}>{item.aktif ? "Arsipkan" : "Aktifkan"}</button>{" · "}<button className="text-button" onClick={() => onDelete(item)}>Hapus</button></> : item.id === ownerId && <><button className="text-button" onClick={() => onEdit(item, "owner-name")}>Ubah nama</button>{" · "}<button className="text-button" onClick={() => onEdit(item, "password")}>Atur sandi</button></>}</td></tr>)}
+    {users.map((item) => <tr key={item.id}><td><b>{item.nama}</b></td><td>{item.username}</td><td>{item.role === "PEMILIK" ? "Pemilik" : "Kasir"}</td><td><span className={`badge ${item.aktif ? "" : "badge-warning"}`}>{item.aktif ? "Aktif" : "Nonaktif"}</span></td><td>{new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(item.dibuatPada))}</td><td>{item.role === "KASIR" ? <div className="table-actions"><button className="icon-button text-button" onClick={() => onEdit(item, "edit")} aria-label={`Edit ${item.nama}`} title={`Edit ${item.nama}`}><Icon name="edit" /></button><button className="icon-button text-button" onClick={() => onEdit(item, "password")} aria-label={`Atur sandi ${item.nama}`} title={`Atur sandi ${item.nama}`}><Icon name="password" /></button><button className="icon-button text-button" onClick={() => onToggle(item)} aria-label={item.aktif ? `Arsipkan ${item.nama}` : `Aktifkan ${item.nama}`} title={item.aktif ? `Arsipkan ${item.nama}` : `Aktifkan ${item.nama}`}><Icon name={item.aktif ? "archive" : "user"} /></button><button className="icon-button text-button" onClick={() => onDelete(item)} aria-label={`Hapus ${item.nama}`} title={`Hapus ${item.nama}`}><Icon name="trash" /></button></div> : item.id === ownerId && <div className="table-actions"><button className="icon-button text-button" onClick={() => onEdit(item, "owner-name")} aria-label="Ubah nama pemilik" title="Ubah nama pemilik"><Icon name="edit" /></button><button className="icon-button text-button" onClick={() => onEdit(item, "password")} aria-label="Atur sandi pemilik" title="Atur sandi pemilik"><Icon name="password" /></button></div>}</td></tr>)}
     {!users.length && <EmptyRow colSpan={6} />}
   </tbody></table></div>;
 }
@@ -1078,7 +1191,7 @@ function EmptyRow({ colSpan }) {
 
 function ExpensesTable({ expenses, money: formatMoney, date: formatDate, onDelete }) {
   return <div className="table-wrap"><table><thead><tr><th>TANGGAL</th><th>KATEGORI</th><th>KETERANGAN</th><th>JUMLAH</th><th>DICATAT OLEH</th><th>AKSI</th></tr></thead><tbody>
-    {expenses.map((expense) => <tr key={expense.id}><td>{formatDate(expense.tanggal)}</td><td>{expense.kategori}</td><td>{expense.deskripsi}</td><td><b>{formatMoney(expense.jumlah)}</b></td><td>{expense.user?.nama || "—"}</td><td><button className="text-button" onClick={() => onDelete(expense)}>Hapus</button></td></tr>)}
+    {expenses.map((expense) => <tr key={expense.id}><td>{formatDate(expense.tanggal)}</td><td>{expense.kategori}</td><td>{expense.deskripsi}</td><td><b>{formatMoney(expense.jumlah)}</b></td><td>{expense.user?.nama || "—"}</td><td><button className="icon-button text-button" onClick={() => onDelete(expense)} aria-label={`Hapus biaya ${expense.deskripsi}`} title={`Hapus biaya ${expense.deskripsi}`}><Icon name="trash" /></button></td></tr>)}
     {!expenses.length && <EmptyRow colSpan={6} />}
   </tbody></table></div>;
 }

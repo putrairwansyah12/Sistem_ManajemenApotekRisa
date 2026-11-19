@@ -5,7 +5,17 @@ import { prisma } from "../../../lib/prisma";
 
 const saleInclude = {
   user: { select: { nama: true } },
-  detail: { include: { produk: { select: { namaProduk: true, kodeBarang: true } } } },
+  detail: {
+    include: {
+      produk: {
+        select: {
+          namaProduk: true,
+          kodeBarang: true,
+          satuan: { select: { kode: true } },
+        },
+      },
+    },
+  },
 };
 
 function moneyInput(value, label) {
