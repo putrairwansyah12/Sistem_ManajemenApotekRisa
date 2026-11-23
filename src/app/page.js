@@ -21,6 +21,14 @@ const menus = [
   ["users", "Pengguna", "♙", "PEMILIK"],
 ];
 
+const reportMetricLabels = {
+  omzet: "Omzet",
+  jumlahKunjungan: "Jumlah kunjungan",
+  labaKotor: "Laba kotor",
+  biayaOperasional: "Biaya operasional",
+  labaBersih: "Laba bersih",
+};
+
 const currency = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
@@ -32,13 +40,13 @@ function money(value) {
   return currency.format(Number(value || 0));
 }
 
-function dateInputValue() {
+function dateInputValue(value = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Jakarta",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).formatToParts(new Date());
+  }).formatToParts(value);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.year}-${values.month}-${values.day}`;
 }
@@ -117,6 +125,7 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [screen, setScreen] = useState("dashboard");
+  const [summaryDetail, setSummaryDetail] = useState(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [data, setData] = useState([]);
   const [stockProducts, setStockProducts] = useState([]);
@@ -124,6 +133,7 @@ export default function Home() {
   const [stockBatchItems, setStockBatchItems] = useState([]);
   const [dashboard, setDashboard] = useState(null);
   const [report, setReport] = useState(null);
+  const [reportDetail, setReportDetail] = useState(null);
   const [reportFilter, setReportFilter] = useState({ period: "month", date: "" });
   const [expenseDate, setExpenseDate] = useState("");
   const [excelFile, setExcelFile] = useState(null);
@@ -238,6 +248,7 @@ export default function Home() {
         const date = dateInputValue();
         setReportFilter({ period: "month", date });
         setReport(await request(`/api/reports?period=month&date=${date}`));
+        setReportDetail(null);
       } else if (currentScreen === "prices") {
         setData((await request("/api/price-history")).history);
       } else if (currentScreen === "stock") {
@@ -276,12 +287,35 @@ export default function Home() {
   }, [loadScreen]);
 
   const filtered = useMemo(() => {
+    let result = data;
+    if (screen === "products" && summaryDetail === "lowStock") {
+      result = result.filter((item) => item.stok <= item.stokMinimum);
+    } else if (screen === "history" && summaryDetail === "todayRevenue") {
+      const today = dateInputValue();
+      result = result.filter((item) => dateInputValue(new Date(item.tanggal)) === today);
+    } else if (screen === "expiry" && summaryDetail === "expiring") {
+      result = result.filter((item) => item.status !== "KEDALUWARSA");
+    }
+
     const term = query.trim().toLocaleLowerCase("id-ID");
-    if (!term) return data;
-    return data.filter((item) =>
+    if (!term) return result;
+    return result.filter((item) =>
       JSON.stringify(item).toLocaleLowerCase("id-ID").includes(term),
     );
-  }, [data, query]);
+  }, [data, query, screen, summaryDetail]);
+
+  function openSummaryDetail(detail) {
+    const targetScreen = detail === "todayRevenue"
+      ? "history"
+      : detail === "expiring"
+        ? "expiry"
+        : "products";
+    setSummaryDetail(detail);
+    setQuery("");
+    setScreen(targetScreen);
+    setMobileNavOpen(false);
+    loadScreen(targetScreen);
+  }
 
   async function login(event) {
     event.preventDefault();
@@ -292,6 +326,7 @@ export default function Home() {
         body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),
       });
       setUser(currentUser);
+      setSummaryDetail(null);
       setScreen("dashboard");
       await loadScreen("dashboard");
       flash(`Selamat datang, ${currentUser.nama}.`);
@@ -445,6 +480,7 @@ export default function Home() {
       try {
         const params = new URLSearchParams(reportFilter);
         setReport(await request(`/api/reports?${params}`));
+        setReportDetail(null);
       } catch (error) {
         flash(error.message);
       } finally {
@@ -776,7 +812,13 @@ export default function Home() {
 
   const activeMenu = menus.find(([id]) => id === screen);
   const visibleMenus = menus.filter(([, , , role]) => !role || role === user.role);
-  const heading = activeMenu?.[1] || "Ringkasan";
+  const summaryDetailTitles = {
+    todayRevenue: "Omzet hari ini",
+    activeProducts: "Produk aktif",
+    lowStock: "Stok menipis",
+    expiring: "Kedaluwarsa ≤ 6 bulan",
+  };
+  const heading = summaryDetailTitles[summaryDetail] || activeMenu?.[1] || "Ringkasan";
   const selectedPriceProduct = data.find((item) => item.id === Number(priceForm.produkId));
   const priceSourceNote = priceForm.hppSumber === "hargaBeli"
     ? "HPP produk masih 0; kalkulasi memakai harga beli database. HPP database tidak diubah saat simpan."
@@ -789,14 +831,14 @@ export default function Home() {
     <div className="app-shell">
       {mobileNavOpen && <button className="sidebar-backdrop" type="button" aria-label="Tutup menu navigasi" onClick={() => setMobileNavOpen(false)} />}
       <aside id="main-sidebar" className={`sidebar ${mobileNavOpen ? "mobile-open" : ""}`}>
-        <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setMobileNavOpen(false); setScreen("dashboard"); }}>
+        <a className="brand" href="#" onClick={(event) => { event.preventDefault(); setMobileNavOpen(false); setSummaryDetail(null); setScreen("dashboard"); }}>
           <span className="brand-mark small">
             <img src="/apotek.jpg" alt="Logo Apotek Risa" width="32" height="32" />  
           </span><span><b>APOTEK RISA</b><small>Management System</small></span>
         </a>
         <p className="nav-caption">MENU UTAMA</p>
         <nav>{visibleMenus.map(([id, title, icon]) => (
-          <button key={id} className={`nav-item ${screen === id ? "selected" : ""}`} aria-label={title} title={title} onClick={() => { setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
+          <button key={id} className={`nav-item ${screen === id ? "selected" : ""}`} aria-label={title} title={title} onClick={() => { setSummaryDetail(null); setReportDetail(null); setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
             <span className="nav-icon" aria-hidden="true">{icon}</span>{title}
           </button>
         ))}</nav>
@@ -804,11 +846,11 @@ export default function Home() {
       </aside>
       <main className="main-area">
         <header className="topbar"><div className="topbar-start"><button className="menu-toggle" type="button" aria-label={mobileNavOpen ? "Tutup menu navigasi" : "Buka menu navigasi"} aria-controls="main-sidebar" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((open) => !open)}><span aria-hidden="true">{mobileNavOpen ? "×" : "☰"}</span></button><div className="breadcrumb">Apotek Risa <span>/</span> {heading}</div></div><div className="profile"><span className="avatar">{user.nama.slice(0, 1).toUpperCase()}</span><div><b>{user.nama}</b><small>{user.role === "PEMILIK" ? "Pemilik Apotek" : "Kasir"}</small></div><button className="button ghost logout icon-button" onClick={logout} aria-label="Keluar" title="Keluar"><Icon name="logout" /></button></div></header>
-        <section className="page-heading"><div><p className="eyebrow">APOTEK RISA / OPERASIONAL</p><h1>{heading}</h1><p className="muted">{screen === "dashboard" ? "Pantau aktivitas dan kondisi persediaan apotek." : `Kelola ${heading.toLocaleLowerCase("id-ID")} dengan data dari database.`}</p></div><span className="live-pill"><i /> DATA LANGSUNG</span></section>
+        <section className="page-heading"><div><p className="eyebrow">APOTEK RISA / OPERASIONAL</p><h1>{heading}</h1><p className="muted">{summaryDetail ? "Detail data dari ringkasan." : screen === "dashboard" ? "Pantau aktivitas dan kondisi persediaan apotek." : `Kelola ${heading.toLocaleLowerCase("id-ID")} dengan data dari database.`}</p></div><span className="live-pill"><i /> DATA LANGSUNG</span></section>
 
-        {screen === "dashboard" && <Dashboard dashboard={dashboard} money={money} date={date} />}
+        {screen === "dashboard" && <Dashboard dashboard={dashboard} money={money} date={date} onMetricClick={openSummaryDetail} />}
         {screen === "products" && <>
-          {user.role === "PEMILIK" && <form className="panel product-form" onSubmit={createProduct}>
+          {user.role === "PEMILIK" && !summaryDetail && <form className="panel product-form" onSubmit={createProduct}>
             <div className="panel-title"><div><h2>Tambah obat</h2><p>Masukkan detail produk dan persediaan awal.</p></div></div>
             <div className="form-grid">
               <Field name="namaProduk" label="Nama obat" required />
@@ -821,7 +863,7 @@ export default function Home() {
               <Field name="stokMinimum" label="Batas stok menipis" type="number" min="0" required />
             </div><button className="button primary icon-button" disabled={busy} aria-label="Simpan obat" title="Simpan obat"><Icon name="save" /></button>
           </form>}
-          {editingProduct && <form ref={editProductFormRef} className="panel product-form" onSubmit={saveProductEdit}>
+          {editingProduct && !summaryDetail && <form ref={editProductFormRef} className="panel product-form" onSubmit={saveProductEdit}>
             <div className="panel-title"><div><h2>Ubah produk</h2><p>{editingProduct.namaProduk}</p></div></div>
             <div className="form-grid">
               <Field name="namaProduk" label="Nama obat" defaultValue={editingProduct.namaProduk} required />
@@ -836,7 +878,7 @@ export default function Home() {
             <button className="button primary icon-button" disabled={busy} aria-label="Simpan perubahan" title="Simpan perubahan"><Icon name="save" /></button>{" "}
             <button type="button" className="button ghost icon-button" onClick={() => setEditingProduct(null)} aria-label="Batal" title="Batal"><Icon name="cancel" /></button>
           </form>}
-          <div className="panel"><PanelTitle title="Katalog obat" count={`${filtered.length} produk`} /><Search value={query} onChange={setQuery} />
+          <div className="panel"><PanelTitle title={summaryDetail === "lowStock" ? "Produk dengan stok menipis" : "Katalog obat"} count={`${filtered.length} produk`} /><Search value={query} onChange={setQuery} />
             <ProductsTable products={filtered} money={money} onArchive={archiveProduct} onPriceChange={changePrice} onEdit={setEditingProduct} owner={user.role === "PEMILIK"} />
           </div>
         </>}
@@ -887,7 +929,7 @@ export default function Home() {
             <button className="button primary full icon-button" disabled={!cart.length || busy} onClick={checkout} aria-label={busy ? "Memproses transaksi" : "Selesaikan transaksi"} title={busy ? "Memproses transaksi" : "Selesaikan transaksi"}><Icon name="cart" /></button>
           </div>
         </div>}
-        {screen === "history" && <div className="panel"><PanelTitle title="Transaksi terbaru" count={`${filtered.length} transaksi`} /><Search value={query} onChange={setQuery} /><SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} /></div>}
+        {screen === "history" && <div className="panel"><PanelTitle title={summaryDetail === "todayRevenue" ? "Transaksi hari ini" : "Transaksi terbaru"} count={summaryDetail === "todayRevenue" ? `${filtered.length} dari ${dashboard?.todayTransactions ?? filtered.length} transaksi · omzet ${money(dashboard?.todayRevenue)}` : `${filtered.length} transaksi`} /><Search value={query} onChange={setQuery} /><SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} /></div>}
         {screen === "expenses" && user.role === "PEMILIK" && <>
           <form className="panel product-form" onSubmit={createExpense}>
             <div className="panel-title"><div><h2>Catat biaya operasional</h2><p>Biaya pada periode ini akan mengurangi laba bersih laporan.</p></div></div>
@@ -912,13 +954,18 @@ export default function Home() {
           </form>
           {report && <>
             <div className="metric-grid report-metrics">
-              <Metric label="Omzet" value={money(report.omzet)} note={`${report.jumlahTransaksi} transaksi`} icon="↗" />
-              <Metric label="Jumlah kunjungan" value={report.jumlahKunjungan} note="Satu per transaksi tersimpan" icon="♧" />
-              <Metric label="Laba kotor" value={money(report.labaKotor)} note="Harga jual dikurangi HPP" icon="+" />
-              <Metric label="Biaya operasional" value={money(report.biayaOperasional)} note="Pada periode terpilih" icon="−" warning />
-              <Metric label="Laba bersih" value={money(report.labaBersih)} note="Setelah potongan dan biaya" icon="=" />
+              <Metric label="Omzet" value={money(report.omzet)} note={`${report.jumlahTransaksi} transaksi`} icon="↗" selected={reportDetail === "omzet"} onClick={() => setReportDetail((current) => current === "omzet" ? null : "omzet")} />
+              <Metric label="Jumlah kunjungan" value={report.jumlahKunjungan} note="Satu per transaksi tersimpan" icon="♧" selected={reportDetail === "jumlahKunjungan"} onClick={() => setReportDetail((current) => current === "jumlahKunjungan" ? null : "jumlahKunjungan")} />
+              <Metric label="Laba kotor" value={money(report.labaKotor)} note="Harga jual dikurangi HPP" icon="+" selected={reportDetail === "labaKotor"} onClick={() => setReportDetail((current) => current === "labaKotor" ? null : "labaKotor")} />
+              <Metric label="Biaya operasional" value={money(report.biayaOperasional)} note="Pada periode terpilih" icon="−" warning selected={reportDetail === "biayaOperasional"} onClick={() => setReportDetail((current) => current === "biayaOperasional" ? null : "biayaOperasional")} />
+              <Metric label="Laba bersih" value={money(report.labaBersih)} note="Setelah potongan dan biaya" icon="=" selected={reportDetail === "labaBersih"} onClick={() => setReportDetail((current) => current === "labaBersih" ? null : "labaBersih")} />
             </div>
-            <div className="panel"><PanelTitle title="Rincian per periode" count={`${report.data.length} baris`} /><ReportTable rows={report.data} money={money} /></div>
+            {reportDetail
+              ? <div className="panel">
+                <div className="panel-title"><div><h2>Rincian {reportMetricLabels[reportDetail].toLocaleLowerCase("id-ID")}</h2><p>Nilai untuk setiap periode pada laporan ini.</p></div><button type="button" className="button ghost icon-button" onClick={() => setReportDetail(null)} aria-label="Tutup rincian laporan" title="Tutup rincian laporan"><Icon name="cancel" /></button></div>
+                <ReportMetricTable rows={report.data} metric={reportDetail} money={money} />
+              </div>
+              : <div className="panel"><PanelTitle title="Rincian per periode" count={`${report.data.length} baris`} /><ReportTable rows={report.data} money={money} /></div>}
           </>}
         </>}
         {screen === "excel" && user.role === "PEMILIK" && <>
@@ -979,7 +1026,7 @@ export default function Home() {
           </form>
           <div className="panel"><PanelTitle title="Riwayat stock opname" count={`${filtered.length} catatan`} /><Search value={query} onChange={setQuery} /><StockTable records={filtered} date={date} /></div>
         </>}
-        {screen === "expiry" && <><form className="panel stock-form" onSubmit={receiveBatch}><div className="panel-title"><div><h2>Terima barang masuk</h2><p>Catat batch baru; jumlahnya otomatis ditambahkan ke stok.</p></div></div><div className="form-grid"><label>Obat<select name="produkId" required defaultValue=""><option value="" disabled>Pilih obat</option>{stockProducts.map((product) => <option value={product.id} key={product.id}>{product.namaProduk}</option>)}</select></label><Field name="nomorBatch" label="Nomor batch" required /><Field name="tanggalKedaluwarsa" label="Tanggal kedaluwarsa" type="date" required /><Field name="jumlah" label="Jumlah diterima" type="number" min="1" required /><Field name="hargaBeli" label="Harga beli terbaru (opsional)" type="number" min="0" step="0.01" /><Field name="hpp" label="HPP terbaru (opsional)" type="number" min="0" step="0.01" /></div><button className="button primary icon-button" disabled={busy} aria-label="Simpan barang masuk" title="Simpan barang masuk"><Icon name="save" /></button></form><div className="panel"><PanelTitle title="Batch kedaluwarsa dan batas retur" count={`${filtered.length} batch`} /><Search value={query} onChange={setQuery} /><ExpiryTable batches={filtered} date={date} /></div></>}
+        {screen === "expiry" && <>{user.role === "PEMILIK" && !summaryDetail && <form className="panel stock-form" onSubmit={receiveBatch}><div className="panel-title"><div><h2>Terima barang masuk</h2><p>Catat batch baru; jumlahnya otomatis ditambahkan ke stok.</p></div></div><div className="form-grid"><label>Obat<select name="produkId" required defaultValue=""><option value="" disabled>Pilih obat</option>{stockProducts.map((product) => <option value={product.id} key={product.id}>{product.namaProduk}</option>)}</select></label><Field name="nomorBatch" label="Nomor batch" required /><Field name="tanggalKedaluwarsa" label="Tanggal kedaluwarsa" type="date" required /><Field name="jumlah" label="Jumlah diterima" type="number" min="1" required /><Field name="hargaBeli" label="Harga beli terbaru (opsional)" type="number" min="0" step="0.01" /><Field name="hpp" label="HPP terbaru (opsional)" type="number" min="0" step="0.01" /></div><button className="button primary icon-button" disabled={busy} aria-label="Simpan barang masuk" title="Simpan barang masuk"><Icon name="save" /></button></form>}<div className="panel"><PanelTitle title="Batch kedaluwarsa dan batas retur" count={`${filtered.length} batch`} /><Search value={query} onChange={setQuery} /><ExpiryTable batches={filtered} date={date} /></div></>}
         {screen === "backup" && user.role === "PEMILIK" && <>
           <div className="panel product-form">
             <div className="panel-title"><div><h2>Backup database</h2><p>File mencakup data pengguna untuk memulihkan akun. Simpan terenkripsi dan jangan bagikan.</p></div></div>
@@ -1063,14 +1110,14 @@ function Search({ value, onChange }) {
   return <div className="search-wrap"><span>⌕</span><input aria-label="Cari data" placeholder="Cari nama, kode, atau informasi…" value={value} onChange={(event) => onChange(event.target.value)} /></div>;
 }
 
-function Dashboard({ dashboard, money: formatMoney, date: formatDate }) {
+function Dashboard({ dashboard, money: formatMoney, date: formatDate, onMetricClick }) {
   if (!dashboard) return <div className="loading-bar">Memuat ringkasan…</div>;
   return <>
     <div className="metric-grid">
-      <Metric label="Omzet hari ini" value={formatMoney(dashboard.todayRevenue)} note={`${dashboard.todayTransactions} transaksi`} icon="↗" />
-      <Metric label="Produk aktif" value={dashboard.productCount} note="Jenis obat dalam katalog" icon="▤" />
-      <Metric label="Stok menipis" value={dashboard.lowStockCount} note="Perlu segera diperiksa" icon="!" warning />
-      <Metric label="Kedaluwarsa ≤ 6 bulan" value={dashboard.expiringCount} note={`≤ 3 bulan: ${dashboard.returnWindowCount} · 3–6 bulan: ${Math.max(0, dashboard.expiringCount - dashboard.returnWindowCount)}`} icon="◷" warning />
+      <Metric label="Omzet hari ini" value={formatMoney(dashboard.todayRevenue)} note={`${dashboard.todayTransactions} transaksi`} icon="↗" onClick={() => onMetricClick("todayRevenue")} />
+      <Metric label="Produk aktif" value={dashboard.productCount} note="Jenis obat dalam katalog" icon="▤" onClick={() => onMetricClick("activeProducts")} />
+      <Metric label="Stok menipis" value={dashboard.lowStockCount} note="Perlu segera diperiksa" icon="!" warning onClick={() => onMetricClick("lowStock")} />
+      <Metric label="Kedaluwarsa ≤ 6 bulan" value={dashboard.expiringCount} note={`≤ 3 bulan: ${dashboard.returnWindowCount} · 3–6 bulan: ${Math.max(0, dashboard.expiringCount - dashboard.returnWindowCount)}`} icon="◷" warning onClick={() => onMetricClick("expiring")} />
     </div>
     <div className="dashboard-grid">
       <div className="panel"><PanelTitle title="Transaksi terkini" count="Terbaru" /><SalesTable sales={dashboard.recentSales} money={formatMoney} date={formatDate} /></div>
@@ -1081,8 +1128,8 @@ function Dashboard({ dashboard, money: formatMoney, date: formatDate }) {
   </>;
 }
 
-function Metric({ label, value, note, icon, warning }) {
-  return <article className="metric-card"><div className={`metric-icon ${warning ? "warning" : ""}`}>{icon}</div><span>{label}</span><strong>{value}</strong><small>{note}</small></article>;
+function Metric({ label, value, note, icon, warning, onClick, selected }) {
+  return <button type="button" className={`metric-card ${selected ? "selected" : ""}`} onClick={onClick} aria-pressed={Boolean(selected)} aria-label={`${label}: ${value}. Klik untuk melihat detail.`}><div className={`metric-icon ${warning ? "warning" : ""}`}>{icon}</div><span>{label}</span><strong>{value}</strong><small>{note}</small><small className="metric-card-action">Klik untuk lihat detail</small></button>;
 }
 
 function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange, onEdit, owner }) {
@@ -1196,18 +1243,26 @@ function ExpensesTable({ expenses, money: formatMoney, date: formatDate, onDelet
   </tbody></table></div>;
 }
 
-function ReportTable({ rows, money: formatMoney }) {
-  function label(period) {
-    const value = new Date(`${period.length === 7 ? `${period}-01` : period}T00:00:00.000Z`);
-    return new Intl.DateTimeFormat("id-ID", {
-      ...(period.length === 7 ? { month: "long", year: "numeric" } : { dateStyle: "medium" }),
-      timeZone: "UTC",
-    }).format(value);
-  }
+function reportPeriodLabel(period) {
+  const value = new Date(`${period.length === 7 ? `${period}-01` : period}T00:00:00.000Z`);
+  return new Intl.DateTimeFormat("id-ID", {
+    ...(period.length === 7 ? { month: "long", year: "numeric" } : { dateStyle: "medium" }),
+    timeZone: "UTC",
+  }).format(value);
+}
 
+function ReportTable({ rows, money: formatMoney }) {
   return <div className="table-wrap"><table><thead><tr><th>PERIODE</th><th>OMZET</th><th>TRANSAKSI / KUNJUNGAN</th><th>LABA KOTOR</th><th>BIAYA OPERASIONAL</th><th>LABA BERSIH</th></tr></thead><tbody>
-    {rows.map((row) => <tr key={row.periode}><td>{label(row.periode)}</td><td>{formatMoney(row.omzet)}</td><td>{row.jumlahTransaksi} / {row.jumlahKunjungan}</td><td>{formatMoney(row.labaKotor)}</td><td>{formatMoney(row.biayaOperasional)}</td><td><b>{formatMoney(row.labaBersih)}</b></td></tr>)}
+    {rows.map((row) => <tr key={row.periode}><td>{reportPeriodLabel(row.periode)}</td><td>{formatMoney(row.omzet)}</td><td>{row.jumlahTransaksi} / {row.jumlahKunjungan}</td><td>{formatMoney(row.labaKotor)}</td><td>{formatMoney(row.biayaOperasional)}</td><td><b>{formatMoney(row.labaBersih)}</b></td></tr>)}
     {!rows.length && <EmptyRow colSpan={6} />}
+  </tbody></table></div>;
+}
+
+function ReportMetricTable({ rows, metric, money: formatMoney }) {
+  const countMetric = metric === "jumlahKunjungan";
+  return <div className="table-wrap"><table><thead><tr><th>PERIODE</th><th>{reportMetricLabels[metric].toLocaleUpperCase("id-ID")}</th></tr></thead><tbody>
+    {rows.map((row) => <tr key={row.periode}><td>{reportPeriodLabel(row.periode)}</td><td><b>{countMetric ? row[metric] : formatMoney(row[metric])}</b></td></tr>)}
+    {!rows.length && <EmptyRow colSpan={2} />}
   </tbody></table></div>;
 }
 

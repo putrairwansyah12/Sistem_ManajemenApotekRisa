@@ -4,7 +4,7 @@ import { prisma } from "../../../lib/prisma";
 
 export async function GET() {
   try {
-    await requireUser(["PEMILIK"]);
+    await requireUser();
     const { start, returEnd, preventifEnd } = getExpiryThresholds();
     const batches = await prisma.batchProduk.findMany({
       where: {
