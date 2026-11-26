@@ -105,4 +105,28 @@ describe("product Excel import", () => {
     expect(planProductImport(parsedRows, [existingProduct]).map((row) => row.action))
       .toEqual(["update", "invalid"]);
   });
+
+  it("rejects imported stock below the total recorded batch stock", () => {
+    const planned = planProductImport([{
+      row: 2,
+      product: {
+        kodeBarang: "A-7",
+        namaProduk: "Vitamin C",
+        kategori: "Vitamin",
+        satuan: "Botol",
+        stok: 4,
+      },
+      errors: [],
+    }], [{
+      ...existingProduct,
+      stok: 10,
+      batch: [{ jumlah: 5 }, { jumlah: 3 }],
+    }]);
+
+    expect(planned[0].action).toBe("invalid");
+    expect(planned[0].stokSebelum).toBe(10);
+    expect(planned[0].errors).toEqual([
+      "Stok Excel tidak boleh lebih kecil dari total stok batch (8).",
+    ]);
+  });
 });

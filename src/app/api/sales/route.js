@@ -44,6 +44,7 @@ export async function GET() {
   try {
     await requireUser();
     const sales = await prisma.transaksiPenjualan.findMany({
+      where: { diarsipkan: false },
       include: saleInclude,
       orderBy: { tanggal: "desc" },
       take: 100,

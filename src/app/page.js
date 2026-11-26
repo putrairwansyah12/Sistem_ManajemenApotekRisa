@@ -26,7 +26,7 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .58; }
 
 .app-shell { min-width: 0; min-height: 100vh; }
-.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 3; display: flex; width: 256px; flex-direction: column; overflow-y: auto; border-right: 3px solid #20d2f3; border-left: 3px solid #20d2f3; background: #30008f; padding: 23px 15px 16px; }
+.sidebar { position: fixed; inset: 0 auto 0 0; z-index: 3; display: flex; width: 256px; flex-direction: column; overflow-y: auto; border-right: 3px solid #20d2f3; border-left: 3px solid #20d2f3; background: #30008f; padding: 23px 12px 16px; }
 .brand { display: flex; align-items: center; gap: 11px; padding: 2px 8px 30px; color: inherit; text-decoration: none; }
 .brand > span:last-child { display: grid; gap: 3px; }
 .sidebar .brand b { color: #fff; font-size: 14px; letter-spacing: .3px; }
@@ -35,13 +35,15 @@ button:disabled { cursor: not-allowed; opacity: .58; }
 .brand-mark { display: grid; width: 42px; height: 42px; flex: 0 0 auto; place-items: center; border-radius: 14px; background: var(--primary); color: #fff; font-size: 21px; font-weight: 800; }
 .brand-mark.small { width: 38px; height: 38px; border-radius: 12px; font-size: 18px; }
 .nav-caption, .eyebrow { color: #9993a4; font-size: 10px; font-weight: 800; letter-spacing: 1.15px; }
-.nav-caption { padding: 0 11px; margin: 0 0 8px; }
-.sidebar .nav-caption { color: #bda9ef; }
-.sidebar nav { display: grid; gap: 3px; }
-.nav-item { display: flex; align-items: center; gap: 11px; border: 0; border-radius: 9px; background: transparent; padding: 11px; color: #ded4ff; text-align: left; }
+.nav-caption { padding: 0 12px; margin: 0 0 10px; }
+.sidebar .nav-caption { color: #bda9ef; font-size: 11px; letter-spacing: .8px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 28px; }
+.nav-items { display: grid; gap: 7px; }
+.nav-item { display: flex; width: 100%; min-height: 48px; align-items: center; gap: 13px; border: 0; border-radius: 13px; background: transparent; padding: 11px 14px; color: #ded4ff; font-size: 14px; font-weight: 600; text-align: left; transition: background .15s, color .15s; }
 .nav-item:hover, .nav-item.selected { background: #5127a2; color: #fff; }
 .nav-item.selected { font-weight: 700; }
-.nav-icon { display: grid; width: 20px; flex: 0 0 20px; place-items: center; font-size: 17px; }
+.nav-icon { display: grid; width: 22px; flex: 0 0 22px; place-items: center; color: #c9b8f3; font-size: 18px; }
+.nav-item:hover .nav-icon, .nav-item.selected .nav-icon { color: currentColor; }
 .sidebar-note { display: flex; align-items: center; gap: 8px; margin-top: auto; border-top: 1px solid #6849ad; padding: 16px 7px 3px; color: #c9b8f3; font-size: 11px; }
 .status-dot, .live-pill i { width: 8px; height: 8px; border-radius: 50%; background: #2ba273; }
 .main-area { width: min(100% - 256px, 1600px); min-width: 0; min-height: 100vh; margin-left: 256px; padding: 0 34px 40px; }
@@ -123,8 +125,49 @@ td b { color: var(--ink); font-size: 12px; }
 .batch-count-list { display: grid; gap: 12px; margin-bottom: 15px; }
 .batch-count-list .form-grid { align-items: end; border-bottom: 1px solid var(--border); margin-bottom: 0; padding-bottom: 12px; }
 .sale-options { margin-top: 14px; }
-.excel-preview { display: grid; gap: 12px; margin-top: 20px; }
+.excel-import-form .panel-title p { max-width: 680px; line-height: 1.55; }
+.excel-file-picker { position: relative; display: flex; width: min(100%, 720px); min-height: 78px; align-items: center; gap: 13px; border: 1px dashed #cfc4e5; border-radius: 12px; background: #fbfaff; padding: 13px 15px; cursor: pointer; transition: border-color .15s, background .15s; }
+.excel-file-picker:hover { border-color: #9c87d0; background: #f7f3ff; }
+.excel-file-picker:focus-within { outline: 3px solid #f0ebfb; border-color: #9c87d0; }
+.excel-file-picker > input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.excel-file-icon { display: grid; width: 40px; height: 40px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: #eee8fa; color: var(--primary); }
+.excel-file-copy { display: grid; min-width: 0; flex: 1; gap: 5px; }
+.excel-file-copy strong { overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.excel-file-copy small { color: var(--muted); font-size: 11px; }
+.excel-file-trigger { flex: 0 0 auto; border: 1px solid #e4def0; border-radius: 8px; background: #fff; padding: 8px 11px; color: var(--primary); font-size: 11px; font-weight: 700; }
+.excel-import-help { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.excel-import-help strong { color: #625c70; }
+.excel-help-icon { display: grid; width: 16px; height: 16px; flex: 0 0 auto; place-items: center; border: 1px solid #d5cbea; border-radius: 50%; color: var(--primary); font-size: 10px; font-weight: 800; }
+.excel-import-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.excel-import-actions small { color: var(--muted); font-size: 11px; }
+.excel-preview { display: grid; gap: 12px; margin-top: 20px; border: 1px solid var(--border); border-radius: 12px; background: #fbfaff; padding: 16px; }
+.excel-status { border-radius: 9px; padding: 10px 12px; font-size: 11px; line-height: 1.5; }
+.excel-status.warning { background: #fff2df; color: var(--orange); }
+.excel-status.success { background: #eaf6ef; color: var(--green); }
 .excel-preview .panel-title, .excel-preview p { margin-bottom: 0; }
+.excel-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+.excel-summary span { border: 1px solid var(--border); border-radius: 8px; background: #fff; padding: 7px 10px; color: #625c70; font-size: 11px; }
+.excel-summary b { margin-left: 4px; color: var(--ink); }
+.excel-summary span:nth-child(3) { border-color: #dcefe5; background: #f5fbf7; }
+.excel-save-button { justify-self: start; }
+.button.danger { background: #b33642; color: #fff; }
+.button.danger:hover:not(:disabled) { background: #962d37; }
+.restore-form .panel-title p { max-width: 720px; line-height: 1.55; }
+.restore-warning { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; border: 1px solid #f1d4d1; border-radius: 11px; background: #fff6f5; padding: 13px 15px; }
+.restore-warning-icon { display: grid; width: 25px; height: 25px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: #fbe2df; color: #a52e38; font-size: 13px; font-weight: 800; }
+.restore-warning-copy { display: grid; gap: 4px; }
+.restore-warning-copy strong { color: #8f2933; font-size: 12px; }
+.restore-warning-copy small { color: #79575a; font-size: 11px; line-height: 1.5; }
+.restore-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+.restore-field { display: grid; align-content: start; gap: 9px; }
+.restore-field-title { margin: 0; color: #625c70; font-size: 11px; font-weight: 800; }
+.restore-file-picker { width: 100%; }
+.restore-confirm-field { display: grid; gap: 8px; color: #625c70; font-size: 11px; font-weight: 700; }
+.restore-confirm-field input { width: 100%; height: 48px; border: 1px solid var(--border); border-radius: 9px; outline: 0; background: #fff; padding: 0 12px; color: var(--ink); font-size: 13px; letter-spacing: .5px; }
+.restore-confirm-field input:focus { border-color: #9c87d0; box-shadow: 0 0 0 3px #f2eefb; }
+.restore-field-hint, .restore-file-error { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.restore-file-error { color: #a52e38; font-weight: 700; }
+.restore-submit { min-width: 190px; }
 .form-grid label, .login-card label { display: grid; gap: 7px; color: #625c70; font-size: 11px; font-weight: 700; }
 .form-grid .password-field { display: grid; min-width: 0; gap: 7px; color: #625c70; font-size: 11px; font-weight: 700; }
 .password-input { display: flex; min-width: 0; gap: 6px; }
@@ -134,6 +177,11 @@ td b { color: var(--ink); font-size: 12px; }
 .form-grid input, .form-grid select, .login-card input { width: 100%; min-width: 0; height: 39px; border: 1px solid var(--border); border-radius: 8px; outline: 0; background: #fff; padding: 0 10px; color: var(--ink); font-size: 12px; }
 .form-grid input:focus, .form-grid select:focus, .login-card input:focus { border-color: #9c87d0; box-shadow: 0 0 0 3px #f2eefb; }
 .sales-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, .8fr); gap: 15px; align-items: start; }
+.sales-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 13px; }
+.sales-pagination > small { color: var(--muted); font-size: 11px; }
+.sales-page-controls { display: flex; align-items: center; gap: 8px; }
+.sales-page-controls .button { min-height: 32px; padding: 0 10px; font-size: 11px; }
+.sales-page-number { min-width: 90px; color: #625c70; font-size: 11px; text-align: center; }
 .picker-action { display: flex; align-items: center; gap: 13px; }
 .picker-action > b { font-size: 11px; white-space: nowrap; }
 .cart-panel { position: sticky; top: 16px; }
@@ -277,6 +325,13 @@ td b { color: var(--ink); font-size: 12px; }
   .page-heading { gap: 10px; }
   .page-heading h1 { overflow-wrap: anywhere; }
   .report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sales-pagination { align-items: flex-start; flex-direction: column; }
+  .restore-grid { grid-template-columns: 1fr; gap: 15px; }
+  .restore-submit { width: 100%; }
+  .excel-file-picker { min-height: 70px; gap: 9px; padding: 11px; }
+  .excel-file-icon { width: 35px; height: 35px; }
+  .excel-file-trigger { padding: 7px 8px; }
+  .excel-preview { padding: 12px; }
 }
 
 @media (max-width: 420px) {
@@ -297,6 +352,8 @@ function AppStyles() {
   return <style jsx global>{appStyles}</style>;
 }
 
+const SALES_PAGE_SIZE = 25;
+
 const menus = [
   ["dashboard", "Ringkasan", "▦"],
   ["products", "Obat & Persediaan", "▤"],
@@ -310,6 +367,11 @@ const menus = [
   ["stock", "Stock Opname", "▥", "PEMILIK"],
   ["backup", "Backup & Restore", "⬇", "PEMILIK"],
   ["users", "Pengguna", "♙", "PEMILIK"],
+];
+
+const menuSections = [
+  { title: "MENU UTAMA", ids: ["dashboard", "products", "sales", "history"] },
+  { title: "MANAJEMEN & SISTEM", ids: ["calculator", "prices", "expenses", "reports", "excel", "stock", "backup", "users"] },
 ];
 
 const reportMetricLabels = {
@@ -432,6 +494,7 @@ export default function Home() {
   const [backupFile, setBackupFile] = useState(null);
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
   const [query, setQuery] = useState("");
+  const [salesPage, setSalesPage] = useState(1);
   const [cart, setCart] = useState([]);
   const [saleSettings, setSaleSettings] = useState({
     jenis: "OFFLINE",
@@ -558,6 +621,7 @@ export default function Home() {
       } else if (currentScreen === "users") {
         setData((await request("/api/users")).users);
       } else if (currentScreen === "sales") {
+        setSalesPage(1);
         setData((await request("/api/products?untukPenjualan=true")).products);
       }
     } catch (error) {
@@ -594,6 +658,11 @@ export default function Home() {
       JSON.stringify(item).toLocaleLowerCase("id-ID").includes(term),
     );
   }, [data, query, screen, summaryDetail]);
+
+  const salesPageCount = Math.max(1, Math.ceil(filtered.length / SALES_PAGE_SIZE));
+  const activeSalesPage = Math.min(salesPage, salesPageCount);
+  const salesPageStart = (activeSalesPage - 1) * SALES_PAGE_SIZE;
+  const salesPageProducts = filtered.slice(salesPageStart, salesPageStart + SALES_PAGE_SIZE);
 
   function openSummaryDetail(detail) {
     const targetScreen = detail === "todayRevenue"
@@ -773,6 +842,20 @@ export default function Home() {
       }
   }
 
+  async function archiveSale(sale) {
+    if (!window.confirm(`Sembunyikan transaksi ${sale.kodeTransaksi} dari riwayat? Transaksi tetap memengaruhi stok dan laporan.`)) return;
+    setBusy(true);
+    try {
+      await request(`/api/sales/${sale.id}`, { method: "DELETE" });
+      flash("Transaksi disembunyikan dari riwayat. Stok dan laporan tidak berubah.");
+      await loadScreen("history");
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function refreshReport(event) {
       event.preventDefault();
       setBusy(true);
@@ -890,11 +973,16 @@ export default function Home() {
   async function saveProductEdit(event) {
       event.preventDefault();
       const form = event.currentTarget;
+      const formData = new FormData(form);
+      if (Number(formData.get("stok")) === editingProduct.stok) {
+        formData.delete("stok");
+        formData.delete("alasanStok");
+      }
       setBusy(true);
       try {
         await request(`/api/products/${editingProduct.id}`, {
           method: "PATCH",
-          body: JSON.stringify(Object.fromEntries(new FormData(form))),
+          body: JSON.stringify(Object.fromEntries(formData)),
         });
         setEditingProduct(null);
         flash("Perubahan produk berhasil disimpan.");
@@ -1115,6 +1203,10 @@ export default function Home() {
   const activeMenu = menus.find(([id]) => id === screen)
     || (screen === "expiry" ? menus.find(([id]) => id === "products") : null);
   const visibleMenus = menus.filter(([, , , role]) => !role || role === user.role);
+  const visibleMenuSections = menuSections.map(({ title, ids }) => ({
+    title,
+    menus: visibleMenus.filter(([id]) => ids.includes(id)),
+  })).filter(({ menus: sectionMenus }) => sectionMenus.length > 0);
   const summaryDetailTitles = {
     todayRevenue: "Omzet hari ini",
     activeProducts: "Produk aktif",
@@ -1141,12 +1233,16 @@ export default function Home() {
             <img src="/apotek.jpg" alt="Logo Apotek Risa" width="32" height="32" />  
           </span><span><b>APOTEK RISA</b><small>Management System</small></span>
         </a>
-        <p className="nav-caption">MENU UTAMA</p>
-        <nav>{visibleMenus.map(([id, title, icon]) => (
-          <button key={id} className={`nav-item ${screen === id || (id === "products" && screen === "expiry") ? "selected" : ""}`} aria-label={title} title={title} onClick={() => { setSummaryDetail(null); setReportDetail(null); setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
-            <span className="nav-icon" aria-hidden="true">{icon}</span>{title}
-          </button>
-        ))}</nav>
+        <nav className="sidebar-nav" aria-label="Navigasi utama">
+          {visibleMenuSections.map(({ title, menus: sectionMenus }) => <div className="nav-group" key={title}>
+            <p className="nav-caption">{title}</p>
+            <div className="nav-items">{sectionMenus.map(([id, itemTitle, icon]) => (
+              <button key={id} className={`nav-item ${screen === id || (id === "products" && screen === "expiry") ? "selected" : ""}`} aria-label={itemTitle} title={itemTitle} onClick={() => { setSummaryDetail(null); setReportDetail(null); setQuery(""); setScreen(id); setMobileNavOpen(false); loadScreen(id); }}>
+                <span className="nav-icon" aria-hidden="true">{icon}</span>{itemTitle}
+              </button>
+            ))}</div>
+          </div>)}
+        </nav>
         <div className="sidebar-note"><span className="status-dot" /> Database terhubung melalui server</div>
       </aside>
       <main className="main-area">
@@ -1179,8 +1275,11 @@ export default function Home() {
               <Field name="hargaBeli" label="Harga beli" type="number" min="0" step="0.01" defaultValue={editingProduct.hargaBeli} required />
               <Field name="hpp" label="HPP" type="number" min="0" step="0.01" defaultValue={editingProduct.hpp} required />
               <Field name="hargaJual" label="Harga jual" type="number" min="0" step="0.01" defaultValue={editingProduct.hargaJual} required />
+              <Field name="stok" label="Stok aktual" type="number" min="0" max="2147483647" step="1" defaultValue={editingProduct.stok} required />
               <Field name="stokMinimum" label="Batas stok menipis" type="number" min="0" step="1" defaultValue={editingProduct.stokMinimum} required />
+              <Field name="alasanStok" label="Alasan perubahan stok (wajib jika berubah)" maxLength="255" placeholder="Contoh: hasil hitung fisik" />
             </div>
+            <p className="muted">Perubahan stok dicatat sebagai stock opname. Stok tidak dapat diatur di bawah jumlah batch yang tercatat.</p>
             <button className="button primary icon-button" disabled={busy} aria-label="Simpan perubahan" title="Simpan perubahan"><Icon name="save" /></button>{" "}
             <button type="button" className="button ghost icon-button" onClick={() => setEditingProduct(null)} aria-label="Batal" title="Batal"><Icon name="cancel" /></button>
           </form>}
@@ -1211,12 +1310,22 @@ export default function Home() {
           </div>}
         </>}
         {screen === "sales" && <div className="sales-layout">
-          <div className="panel"><PanelTitle title="Pilih obat" count={`${filtered.length} tersedia`} /><Search value={query} onChange={setQuery} />
-            <div className="product-picker">{filtered.map((product) => <div className="picker-row" key={product.id}><div><b>{product.namaProduk}</b><small>{product.kodeBarang || "Tanpa kode"} · Stok {product.stok} {product.satuan.kode}</small></div><div className="picker-action"><b>{money(product.hargaJual)}</b><button className="button secondary" disabled={!product.stok || busy} onClick={() => setCart((items) => {
+          <div className="panel"><PanelTitle title="Pilih obat" count={`${filtered.length} tersedia`} /><Search value={query} onChange={(value) => { setQuery(value); setSalesPage(1); }} />
+            <div className="product-picker">{salesPageProducts.map((product) => <div className="picker-row" key={product.id}><div><b>{product.namaProduk}</b><small>{product.kodeBarang || "Tanpa kode"} · Stok {product.stok} {product.satuan.kode}</small></div><div className="picker-action"><b>{money(product.hargaJual)}</b><button className="button secondary" disabled={!product.stok || busy} onClick={() => setCart((items) => {
               const found = items.find((item) => item.id === product.id);
               if (found) return items.map((item) => item.id === product.id ? { ...item, quantity: Math.min(item.quantity + 1, product.stok) } : item);
               return [...items, { id: product.id, quantity: 1, product }];
-            })} aria-label={`Tambah ${product.namaProduk}`} title={`Tambah ${product.namaProduk}`}><Icon name="plus" /></button></div></div>)}</div>
+            })} aria-label={`Tambah ${product.namaProduk}`} title={`Tambah ${product.namaProduk}`}><Icon name="plus" /></button></div></div>)}
+              {!filtered.length && <div className="empty-state">Tidak ada obat yang cocok dengan pencarian.</div>}
+            </div>
+            {filtered.length > 0 && <div className="sales-pagination">
+              <small>Menampilkan {salesPageStart + 1}–{Math.min(salesPageStart + SALES_PAGE_SIZE, filtered.length)} dari {filtered.length} obat</small>
+              {salesPageCount > 1 && <div className="sales-page-controls">
+                <button type="button" className="button ghost" disabled={activeSalesPage === 1} onClick={() => setSalesPage((page) => Math.max(1, page - 1))}>Sebelumnya</button>
+                <span className="sales-page-number">Halaman {activeSalesPage} dari {salesPageCount}</span>
+                <button type="button" className="button ghost" disabled={activeSalesPage === salesPageCount} onClick={() => setSalesPage((page) => Math.min(salesPageCount, page + 1))}>Selanjutnya</button>
+              </div>}
+            </div>}
           </div>
           <div className="panel cart-panel"><PanelTitle title="Keranjang" count={`${cart.reduce((sum, item) => sum + item.quantity, 0)} item`} />
             <div className="cart-items" aria-label="Daftar item keranjang">
@@ -1235,7 +1344,11 @@ export default function Home() {
             <button className="button primary full icon-button" disabled={!cart.length || busy} onClick={checkout} aria-label={busy ? "Memproses transaksi" : "Selesaikan transaksi"} title={busy ? "Memproses transaksi" : "Selesaikan transaksi"}><Icon name="cart" /></button>
           </div>
         </div>}
-        {screen === "history" && <div className="panel"><PanelTitle title={summaryDetail === "todayRevenue" ? "Transaksi hari ini" : "Transaksi terbaru"} count={summaryDetail === "todayRevenue" ? `${filtered.length} dari ${dashboard?.todayTransactions ?? filtered.length} transaksi · omzet ${money(dashboard?.todayRevenue)}` : `${filtered.length} transaksi`} /><Search value={query} onChange={setQuery} /><SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} /></div>}
+        {screen === "history" && <div className="panel">
+          <div className="panel-title"><div><h2>{summaryDetail === "todayRevenue" ? "Transaksi hari ini" : "Transaksi terbaru"}</h2><p>Transaksi yang disembunyikan tetap diperhitungkan pada stok dan laporan.</p></div><span className="count-pill">{summaryDetail === "todayRevenue" ? `${filtered.length} dari ${dashboard?.todayTransactions ?? filtered.length} transaksi · omzet ${money(dashboard?.todayRevenue)}` : `${filtered.length} transaksi`}</span></div>
+          <Search value={query} onChange={setQuery} />
+          <SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} onArchive={user.role === "PEMILIK" ? archiveSale : null} busy={busy} />
+        </div>}
         {screen === "expenses" && user.role === "PEMILIK" && <>
           <form className="panel product-form" onSubmit={createExpense}>
             <div className="panel-title"><div><h2>Catat biaya operasional</h2><p>Biaya pada periode ini akan mengurangi laba bersih laporan.</p></div></div>
@@ -1279,22 +1392,43 @@ export default function Home() {
             <div className="panel-title"><div><h2>Ekspor katalog produk</h2><p>Unduh produk aktif sebagai workbook .xlsx untuk arsip atau penyuntingan.</p></div></div>
             <button type="button" className="button primary icon-button" disabled={busy} onClick={exportProductsExcel} aria-label="Unduh produk Excel" title="Unduh produk Excel"><Icon name="download" /></button>
           </div>
-          <form className="panel product-form" onSubmit={previewProductsExcel}>
-            <div className="panel-title"><div><h2>Impor produk Excel</h2><p>Pratinjau dan perbaiki semua validasi sebelum menyimpan. Pembaruan tidak mengubah stok produk yang sudah ada.</p></div></div>
-            <div className="form-grid">
-              <label>File workbook (.xlsx)<input key={excelFile?.name || "empty"} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => {
+          <form className="panel product-form excel-import-form" onSubmit={previewProductsExcel}>
+            <div className="panel-title"><div><h2>Impor produk Excel</h2><p>Pratinjau dan perbaiki semua validasi sebelum menyimpan. Stok produk yang sudah ada akan disesuaikan dengan nilai di Excel.</p></div></div>
+            <label className="excel-file-picker">
+              <span className="excel-file-icon"><Icon name="upload" size={20} /></span>
+              <span className="excel-file-copy">
+                <strong>{excelFile?.name || "Pilih workbook Excel (.xlsx)"}</strong>
+                <small>{excelFile ? "File siap dipratinjau" : "Klik area ini untuk memilih file"}</small>
+              </span>
+              <span className="excel-file-trigger">{excelFile ? "Ganti file" : "Pilih file"}</span>
+              <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Pilih file workbook Excel" onChange={(event) => {
                 setExcelFile(event.target.files?.[0] || null);
                 setExcelPreview(null);
-              }} required /></label>
+                event.target.value = "";
+              }} />
+            </label>
+            <div className="excel-import-help">
+              <span className="excel-help-icon" aria-hidden="true">i</span>
+              <span><strong>Maksimal 5 MB dan 5.000 baris.</strong> Gunakan urutan kolom workbook ekspor. Stok Excel tidak boleh lebih kecil dari total stok batch yang tercatat.</span>
             </div>
-            <p className="muted">Maksimal 5 MB dan 5.000 baris. Header harus mengikuti urutan kolom pada workbook ekspor.</p>
-            <button className="button primary icon-button" disabled={busy || !excelFile} aria-label={busy ? "Memvalidasi impor" : "Pratinjau impor"} title={busy ? "Memvalidasi impor" : "Pratinjau impor"}><Icon name="preview" /></button>
+            <div className="excel-import-actions">
+              <button className="button primary" disabled={busy || !excelFile}><Icon name="preview" />{busy ? "Memvalidasi…" : "Pratinjau data"}</button>
+              <small>Perubahan baru diterapkan setelah Anda menekan Simpan impor.</small>
+            </div>
             {excelPreview && <div className="excel-preview">
-              {excelPreview.error && <p className="badge badge-warning">{excelPreview.error}</p>}
-              <div className="panel-title"><div><h2>Hasil pratinjau</h2><p>{excelPreview.filename || excelFile?.name} · {excelPreview.rowCount || 0} baris</p></div><span className="count-pill">{excelPreview.counts?.errors || 0} perlu diperbaiki</span></div>
-              <p className="muted">Baru: {excelPreview.counts?.create || 0} · Diperbarui: {excelPreview.counts?.update || 0} · Ambigu: {excelPreview.counts?.ambiguous || 0}</p>
+              {excelPreview.error && <p className="excel-status warning">{excelPreview.error}</p>}
+              {excelPreview.mode === "commit"
+                ? <p className="excel-status success">Impor berhasil disimpan. Stok {excelPreview.counts?.stokDiperbarui || 0} produk diperbarui.</p>
+                : <p className="excel-status warning">Ini baru pratinjau dan belum disimpan. Periksa datanya, lalu klik Simpan impor.</p>}
+              <div className="panel-title"><div><h2>{excelPreview.mode === "commit" ? "Hasil impor" : "Hasil pratinjau"}</h2><p>{excelPreview.filename || excelFile?.name} · {excelPreview.rowCount || 0} baris</p></div><span className="count-pill">{excelPreview.counts?.errors || 0} perlu diperbaiki</span></div>
+              <div className="excel-summary">
+                <span>Produk baru<b>{excelPreview.counts?.create || 0}</b></span>
+                <span>Diperbarui<b>{excelPreview.counts?.update || 0}</b></span>
+                <span>Stok berubah<b>{excelPreview.counts?.stokDiperbarui || 0}</b></span>
+                <span>Ambigu<b>{excelPreview.counts?.ambiguous || 0}</b></span>
+              </div>
+              {excelPreview.mode !== "commit" && <button type="button" className="button primary excel-save-button" disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)} onClick={commitProductsExcel}><Icon name="upload" />{busy ? "Menyimpan…" : "Simpan impor"}</button>}
               <ExcelImportTable rows={excelPreview.rows || []} />
-              <button type="button" className="button secondary icon-button" disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)} onClick={commitProductsExcel} aria-label="Simpan impor" title="Simpan impor"><Icon name="upload" /></button>
             </div>}
           </form>
         </>}
@@ -1342,13 +1476,41 @@ export default function Home() {
             <div className="panel-title"><div><h2>Backup database</h2><p>File mencakup data pengguna untuk memulihkan akun. Simpan terenkripsi dan jangan bagikan.</p></div></div>
             <button className="button primary icon-button" disabled={busy} onClick={downloadBackup} aria-label={busy ? "Memproses backup" : "Unduh backup JSON"} title={busy ? "Memproses backup" : "Unduh backup JSON"}><Icon name="download" /></button>
           </div>
-          <form className="panel product-form" onSubmit={restoreBackup}>
-            <div className="panel-title"><div><h2>Restore database</h2><p>Restore akan mengganti seluruh data saat ini, termasuk akun, produk, transaksi, dan riwayat.</p></div></div>
-            <div className="form-grid">
-              <label>File backup JSON<input type="file" accept=".json,application/json" onChange={(event) => setBackupFile(event.target.files?.[0] || null)} required /></label>
-              <Field name="restoreConfirmation" label={'Ketik "RESTORE" untuk mengonfirmasi'} value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} required />
+          <form className="panel product-form restore-form" onSubmit={restoreBackup}>
+            <div className="panel-title"><div><h2>Restore database</h2><p>Pulihkan data dari file backup JSON. Proses ini akan mengganti seluruh data yang sedang tersimpan.</p></div></div>
+            <div className="restore-warning" role="note">
+              <span className="restore-warning-icon" aria-hidden="true">!</span>
+              <span className="restore-warning-copy"><strong>Tindakan ini mengganti data saat ini dan tidak dapat dibatalkan.</strong><small>Pastikan file backup benar dan terbaru. Data pengguna, produk, transaksi, dan riwayat akan mengikuti isi backup.</small></span>
             </div>
-            <button className="button secondary icon-button" disabled={busy || restoreConfirmation !== "RESTORE" || !backupFile} aria-label={busy ? "Memulihkan backup" : "Ganti data dengan backup"} title={busy ? "Memulihkan backup" : "Ganti data dengan backup"}><Icon name="restore" /></button>
+            <div className="restore-grid">
+              <div className="restore-field">
+                <p className="restore-field-title">1. Pilih file backup</p>
+                <label className="excel-file-picker restore-file-picker">
+                  <span className="excel-file-icon"><Icon name="upload" size={20} /></span>
+                  <span className="excel-file-copy">
+                    <strong>{backupFile?.name || "Pilih file backup JSON"}</strong>
+                    <small>{backupFile ? "File dipilih untuk dipulihkan" : "Format .json · maksimal 25 MB"}</small>
+                  </span>
+                  <span className="excel-file-trigger">{backupFile ? "Ganti file" : "Pilih file"}</span>
+                  <input type="file" accept=".json,application/json" aria-label="Pilih file backup JSON" onChange={(event) => {
+                    setBackupFile(event.target.files?.[0] || null);
+                    setRestoreConfirmation("");
+                    event.target.value = "";
+                  }} />
+                </label>
+                {backupFile?.size > 25 * 1024 * 1024 && <small className="restore-file-error">Ukuran file melebihi batas maksimal 25 MB.</small>}
+              </div>
+              <div className="restore-field">
+                <p className="restore-field-title">2. Konfirmasi penggantian data</p>
+                <label className="restore-confirm-field">Ketik RESTORE untuk mengaktifkan tombol
+                  <input id="restore-confirmation" name="restoreConfirmation" value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} placeholder="RESTORE" autoComplete="off" autoCapitalize="characters" spellCheck={false} required />
+                </label>
+                <small className="restore-field-hint">Konfirmasi harus sama persis: RESTORE</small>
+              </div>
+            </div>
+            <button className="button danger restore-submit" disabled={busy || restoreConfirmation !== "RESTORE" || !backupFile || backupFile.size > 25 * 1024 * 1024}>
+              <Icon name="restore" />{busy ? "Memulihkan..." : "Pulihkan database"}
+            </button>
           </form>
         </>}
         {screen === "users" && user.role === "PEMILIK" && <>
@@ -1456,10 +1618,11 @@ function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange,
   </tbody></table></div>;
 }
 
-function SalesTable({ sales, money: formatMoney, date: formatDate, onReceipt }) {
-  return <div className="table-wrap"><table><thead><tr><th>NO. TRANSAKSI</th><th>TANGGAL</th><th>JENIS</th><th>KASIR</th><th>ITEM</th><th>TOTAL</th>{onReceipt && <th>STRUK</th>}</tr></thead><tbody>
-    {sales.map((sale) => <tr key={sale.id}><td><b>{sale.kodeTransaksi}</b></td><td>{formatDate(sale.tanggal)}</td><td>{sale.jenis === "ONLINE" ? "Online" : "Offline"}</td><td>{sale.user?.nama || "—"}</td><td>{sale.detail?.reduce((sum, detail) => sum + detail.jumlah, 0) ?? 0}</td><td><b>{formatMoney(sale.total)}</b></td>{onReceipt && <td><button type="button" className="icon-button text-button" onClick={() => onReceipt(sale)} aria-label={`Lihat struk ${sale.kodeTransaksi}`} title={`Lihat struk ${sale.kodeTransaksi}`}><Icon name="print" /></button></td>}</tr>)}
-    {!sales.length && <EmptyRow colSpan={onReceipt ? 7 : 6} />}
+function SalesTable({ sales, money: formatMoney, date: formatDate, onReceipt, onArchive, busy = false }) {
+  const columnCount = 6 + Number(Boolean(onReceipt)) + Number(Boolean(onArchive));
+  return <div className="table-wrap"><table><thead><tr><th>NO. TRANSAKSI</th><th>TANGGAL</th><th>JENIS</th><th>KASIR</th><th>ITEM</th><th>TOTAL</th>{onReceipt && <th>STRUK</th>}{onArchive && <th>AKSI</th>}</tr></thead><tbody>
+    {sales.map((sale) => <tr key={sale.id}><td><b>{sale.kodeTransaksi}</b></td><td>{formatDate(sale.tanggal)}</td><td>{sale.jenis === "ONLINE" ? "Online" : "Offline"}</td><td>{sale.user?.nama || "—"}</td><td>{sale.detail?.reduce((sum, detail) => sum + detail.jumlah, 0) ?? 0}</td><td><b>{formatMoney(sale.total)}</b></td>{onReceipt && <td><button type="button" className="icon-button text-button" onClick={() => onReceipt(sale)} aria-label={`Lihat struk ${sale.kodeTransaksi}`} title={`Lihat struk ${sale.kodeTransaksi}`}><Icon name="print" /></button></td>}{onArchive && <td><button type="button" className="icon-button text-button" disabled={busy} onClick={() => onArchive(sale)} aria-label={`Sembunyikan transaksi ${sale.kodeTransaksi}`} title="Sembunyikan dari riwayat"><Icon name="archive" /></button></td>}</tr>)}
+    {!sales.length && <EmptyRow colSpan={columnCount} />}
   </tbody></table></div>;
 }
 
@@ -1585,8 +1748,8 @@ function ReportMetricTable({ rows, metric, money: formatMoney }) {
 
 function ExcelImportTable({ rows }) {
   const actionLabels = { create: "Baru", update: "Perbarui", ambiguous: "Ambigu", invalid: "Tidak valid" };
-  return <div className="table-wrap"><table><thead><tr><th>BARIS</th><th>KODE</th><th>NAMA PRODUK</th><th>AKSI</th><th>VALIDASI</th></tr></thead><tbody>
-    {rows.map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.product?.kodeBarang || "—"}</td><td>{row.product?.namaProduk || "—"}</td><td>{actionLabels[row.action] || row.action}</td><td>{row.errors.length ? row.errors.join("; ") : "Siap disimpan"}</td></tr>)}
-    {!rows.length && <EmptyRow colSpan={5} />}
+  return <div className="table-wrap"><table><thead><tr><th>BARIS</th><th>KODE</th><th>NAMA PRODUK</th><th>STOK SAAT INI</th><th>STOK EXCEL</th><th>AKSI</th><th>VALIDASI</th></tr></thead><tbody>
+    {rows.map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.product?.kodeBarang || "—"}</td><td>{row.product?.namaProduk || "—"}</td><td>{row.action === "update" ? row.stokSebelum : "—"}</td><td>{row.product?.stok ?? "—"}</td><td>{actionLabels[row.action] || row.action}</td><td>{row.errors.length ? row.errors.join("; ") : "Siap disimpan"}</td></tr>)}
+    {!rows.length && <EmptyRow colSpan={7} />}
   </tbody></table></div>;
 }

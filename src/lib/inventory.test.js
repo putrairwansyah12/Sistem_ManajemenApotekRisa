@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { getStockAvailability } from "./inventory";
+import { assertBatchStockFitsProductStock, getStockAvailability } from "./inventory";
+
+describe("assertBatchStockFitsProductStock", () => {
+  it("allows stock changes that preserve all recorded batch quantities", () => {
+    expect(() => assertBatchStockFitsProductStock(12, 8)).not.toThrow();
+    expect(() => assertBatchStockFitsProductStock(8, 8)).not.toThrow();
+  });
+
+  it("rejects stock changes below the recorded batch quantity", () => {
+    expect(() => assertBatchStockFitsProductStock(7, 8)).toThrow(/total stok batch/);
+  });
+});
 
 describe("getStockAvailability", () => {
   const now = new Date("2026-11-18T12:00:00.000Z");

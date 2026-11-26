@@ -198,6 +198,13 @@ export function planProductImport(parsedRows, products) {
         }
       }
 
+      if (matchedProduct) {
+        const batchStock = matchedProduct.batch?.reduce((total, batch) => total + batch.jumlah, 0) ?? 0;
+        if (product.stok < batchStock) {
+          errors.push(`Stok Excel tidak boleh lebih kecil dari total stok batch (${batchStock}).`);
+        }
+      }
+
       if (errors.length === 0 && matchedProduct) {
         if (usedProducts.has(matchedProduct.id)) {
           errors.push("Produk yang sama sudah dirujuk oleh baris impor lain.");
@@ -221,6 +228,7 @@ export function planProductImport(parsedRows, products) {
       row,
       action: errors.length ? action === "ambiguous" ? action : "invalid" : action,
       productId: matchedProduct?.id ?? null,
+      stokSebelum: matchedProduct?.stok ?? null,
       product,
       errors,
     };

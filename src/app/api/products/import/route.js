@@ -1,4 +1,5 @@
 import { ApiError, apiError, requireUser } from "../../../../lib/auth";
+import { assertBatchStockFitsProductStock } from "../../../../lib/inventory";
 import { prisma } from "../../../../lib/prisma";
 import {
   MAX_IMPORT_BYTES,
@@ -81,7 +82,7 @@ async function readImport(request) {
 
 async function planImport(client, parsedRows) {
   const products = await client.produk.findMany({
-    include: PRODUCT_INCLUDE,
+    include: { ...PRODUCT_INCLUDE, batch: { select: { jumlah: true } } },
   });
   return planProductImport(parsedRows, products);
 }
@@ -92,6 +93,8 @@ function importSummary(rows) {
     counts: {
       create: rows.filter((row) => row.action === "create").length,
       update: rows.filter((row) => row.action === "update").length,
+      stokDiperbarui: rows.filter((row) =>
+        row.action === "update" && row.stokSebelum !== row.product.stok).length,
       ambiguous: rows.filter((row) => row.action === "ambiguous").length,
       errors: rows.filter((row) => row.errors.length > 0).length,
     },
@@ -138,22 +141,49 @@ export async function POST(request) {
           hargaBeli: row.product.hargaBeli,
           hpp: row.product.hpp,
           hargaJual: row.product.hargaJual,
+          stok: row.product.stok,
           stokMinimum: row.product.stokMinimum,
         };
 
         if (row.action === "create") {
           const created = await tx.produk.create({
-            data: { ...data, stok: row.product.stok },
+            data,
             select: { id: true },
           });
           row.productId = created.id;
         } else {
           const existing = await tx.produk.findUnique({
             where: { id: row.productId },
-            select: { hargaBeli: true, hpp: true, hargaJual: true },
+            select: { stok: true, hargaBeli: true, hpp: true, hargaJual: true },
           });
           if (!existing) throw new ApiError(`Produk pada baris ${row.row} tidak lagi tersedia.`, 409);
-          await tx.produk.update({ where: { id: row.productId }, data });
+          const batchStock = await tx.batchProduk.aggregate({
+            where: { produkId: row.productId },
+            _sum: { jumlah: true },
+          });
+          try {
+            assertBatchStockFitsProductStock(row.product.stok, batchStock._sum.jumlah ?? 0);
+          } catch (error) {
+            if (error instanceof RangeError) throw new ApiError(`Baris ${row.row}: ${error.message}`, 409);
+            throw error;
+          }
+          const updated = await tx.produk.updateMany({
+            where: { id: row.productId, stok: existing.stok },
+            data,
+          });
+          if (updated.count !== 1) throw new ApiError(`Stok produk pada baris ${row.row} berubah. Muat ulang data dan ulangi impor.`, 409);
+          if (existing.stok !== row.product.stok) {
+            await tx.stockOpname.create({
+              data: {
+                produkId: row.productId,
+                userId: user.id,
+                stokSistem: existing.stok,
+                stokFisik: row.product.stok,
+                selisih: row.product.stok - existing.stok,
+                alasan: `Impor Excel: ${file.name}`.slice(0, 255),
+              },
+            });
+          }
           for (const [field, jenisHarga] of [["hargaBeli", "BELI"], ["hpp", "HPP"], ["hargaJual", "JUAL"]]) {
             if (Number(existing[field]) === row.product[field]) continue;
             await tx.riwayatHarga.create({
@@ -180,7 +210,11 @@ export async function POST(request) {
         select: { id: true, jumlahBaris: true, status: true, tanggal: true },
       });
       return { invalid: false, summary: importSummary(rows), audit };
-    }, { isolationLevel: "Serializable" });
+    }, {
+      isolationLevel: "Serializable",
+      maxWait: 10_000,
+      timeout: 120_000,
+    });
 
     if (result.invalid) {
       return Response.json({
