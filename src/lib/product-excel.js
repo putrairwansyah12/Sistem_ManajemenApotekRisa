@@ -228,6 +228,7 @@ export function planProductImport(parsedRows, products) {
       row,
       action: errors.length ? action === "ambiguous" ? action : "invalid" : action,
       productId: matchedProduct?.id ?? null,
+      stokSebelum: matchedProduct?.stok ?? null,
       product,
       errors,
     };

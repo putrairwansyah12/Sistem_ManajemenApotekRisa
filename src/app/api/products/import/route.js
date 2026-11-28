@@ -1,4 +1,5 @@
 import { ApiError, apiError, requireUser } from "../../../../lib/auth";
+import { assertBatchStockFitsProductStock } from "../../../../lib/inventory";
 import { prisma } from "../../../../lib/prisma";
 import {
   MAX_IMPORT_BYTES,
@@ -85,7 +86,7 @@ async function readImport(request) {
 
 async function planImport(client, parsedRows) {
   const products = await client.produk.findMany({
-    include: PRODUCT_INCLUDE,
+    include: { ...PRODUCT_INCLUDE, batch: { select: { jumlah: true } } },
   });
   return planProductImport(parsedRows, products);
 }
@@ -96,6 +97,8 @@ function importSummary(rows) {
     counts: {
       create: rows.filter((row) => row.action === "create").length,
       update: rows.filter((row) => row.action === "update").length,
+      stokDiperbarui: rows.filter((row) =>
+        row.action === "update" && row.stokSebelum !== row.product.stok).length,
       ambiguous: rows.filter((row) => row.action === "ambiguous").length,
       errors: rows.filter((row) => row.errors.length > 0).length,
     },
@@ -203,12 +206,13 @@ export async function POST(request) {
           hargaBeli: row.product.hargaBeli,
           hpp: row.product.hpp,
           hargaJual: row.product.hargaJual,
+          stok: row.product.stok,
           stokMinimum: row.product.stokMinimum,
         };
 
         if (row.action === "create") {
           const created = await tx.produk.create({
-            data: { ...data, stok: row.product.stok },
+            data,
             select: { id: true },
           });
           row.productId = created.id;

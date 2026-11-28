@@ -160,6 +160,7 @@ model TransaksiPenjualan {
   biayaLayanan      Decimal   @default(0) @map("biaya_layanan") @db.Decimal(14, 2)
   biayaGratisOngkir Decimal   @default(0) @map("biaya_gratis_ongkir") @db.Decimal(14, 2)
   total             Decimal   @default(0) @db.Decimal(14, 2)
+  diarsipkan        Boolean   @default(false) @map("diarsipkan")
 
   user   User              @relation(fields: [userId], references: [id])
   detail DetailPenjualan[]

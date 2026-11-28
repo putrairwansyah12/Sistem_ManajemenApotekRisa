@@ -1,4 +1,5 @@
 import { ApiError, apiError, jsonBody, requireUser } from "../../../../lib/auth";
+import { assertBatchStockFitsProductStock } from "../../../../lib/inventory";
 import { prisma } from "../../../../lib/prisma";
 
 export async function PATCH(request, { params }) {
@@ -27,6 +28,24 @@ export async function PATCH(request, { params }) {
       if (!Number.isInteger(stokMinimum) || stokMinimum < 0) throw new ApiError("Stok minimum tidak valid.");
       data.stokMinimum = stokMinimum;
     }
+    let alasanStok = "";
+    if (body.stok !== undefined) {
+      if ((typeof body.stok !== "number" && typeof body.stok !== "string")
+        || (typeof body.stok === "string" && !body.stok.trim())) {
+        throw new ApiError("Stok tidak valid.");
+      }
+      const stok = Number(body.stok);
+      if (!Number.isInteger(stok) || stok < 0 || stok > 2147483647) {
+        throw new ApiError("Stok harus berupa bilangan bulat yang valid.");
+      }
+      data.stok = stok;
+      if (body.alasanStok !== undefined) {
+        if (typeof body.alasanStok !== "string" || body.alasanStok.trim().length > 255) {
+          throw new ApiError("Alasan perubahan stok tidak valid.");
+        }
+        alasanStok = body.alasanStok.trim();
+      }
+    }
     for (const field of ["hargaBeli", "hpp", "hargaJual"]) {
       if (body[field] === undefined) continue;
       const price = Number(body[field]);
@@ -50,6 +69,31 @@ export async function PATCH(request, { params }) {
       const existing = await tx.produk.findUnique({ where: { id } });
       if (!existing) throw new ApiError("Produk tidak ditemukan.", 404);
       const updateData = { ...data };
+      const stokBerubah = updateData.stok !== undefined && updateData.stok !== existing.stok;
+      if (!stokBerubah) delete updateData.stok;
+      if (stokBerubah) {
+        if (!alasanStok) throw new ApiError("Alasan wajib diisi saat stok diubah.");
+        const batchStock = await tx.batchProduk.aggregate({
+          where: { produkId: id },
+          _sum: { jumlah: true },
+        });
+        try {
+          assertBatchStockFitsProductStock(updateData.stok, batchStock._sum.jumlah ?? 0);
+        } catch (error) {
+          if (error instanceof RangeError) throw new ApiError(error.message, 409);
+          throw error;
+        }
+        await tx.stockOpname.create({
+          data: {
+            produkId: id,
+            userId: user.id,
+            stokSistem: existing.stok,
+            stokFisik: updateData.stok,
+            selisih: updateData.stok - existing.stok,
+            alasan: alasanStok,
+          },
+        });
+      }
       if (typeof updateData.kategoriId === "string") {
         const kategori = await tx.kategoriObat.upsert({
           where: { nama: updateData.kategoriId },
@@ -66,7 +110,17 @@ export async function PATCH(request, { params }) {
         });
         updateData.satuanId = satuan.id;
       }
-      const updated = await tx.produk.update({ where: { id }, data: updateData });
+      let updated = existing;
+      if (stokBerubah) {
+        const result = await tx.produk.updateMany({
+          where: { id, stok: existing.stok },
+          data: updateData,
+        });
+        if (result.count !== 1) throw new ApiError("Stok berubah. Muat ulang data dan coba lagi.", 409);
+        updated = await tx.produk.findUnique({ where: { id } });
+      } else if (Object.keys(updateData).length) {
+        updated = await tx.produk.update({ where: { id }, data: updateData });
+      }
       for (const [field, jenisHarga] of [["hargaBeli", "BELI"], ["hpp", "HPP"], ["hargaJual", "JUAL"]]) {
         if (data[field] === undefined || Number(existing[field]) === data[field]) continue;
         await tx.riwayatHarga.create({

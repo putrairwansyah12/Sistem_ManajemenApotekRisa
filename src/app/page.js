@@ -82,6 +82,11 @@ const menuGroups = [
   },
 ];
 
+const menuSections = [
+  { title: "MENU UTAMA", ids: ["dashboard", "products", "sales", "history"] },
+  { title: "MANAJEMEN & SISTEM", ids: ["calculator", "prices", "expenses", "reports", "excel", "stock", "backup", "users"] },
+];
+
 const reportMetricLabels = {
   omzet: "Omzet",
   jumlahKunjungan: "Jumlah kunjungan",
@@ -606,6 +611,20 @@ export default function Home() {
       await loadScreen("expenses");
     } catch (error) {
       flash(error.message);
+    }
+  }
+
+  async function archiveSale(sale) {
+    if (!window.confirm(`Sembunyikan transaksi ${sale.kodeTransaksi} dari riwayat? Transaksi tetap memengaruhi stok dan laporan.`)) return;
+    setBusy(true);
+    try {
+      await request(`/api/sales/${sale.id}`, { method: "DELETE" });
+      flash("Transaksi disembunyikan dari riwayat. Stok dan laporan tidak berubah.");
+      await loadScreen("history");
+    } catch (error) {
+      flash(error.message);
+    } finally {
+      setBusy(false);
     }
   }
 

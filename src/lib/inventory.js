@@ -1,3 +1,9 @@
+export function assertBatchStockFitsProductStock(productStock, batchStock) {
+  if (productStock < batchStock) {
+    throw new RangeError("Stok baru tidak boleh lebih kecil dari total stok batch yang tercatat.");
+  }
+}
+
 export function getStockAvailability(productStock, batches, now = new Date()) {
   if (!Number.isInteger(productStock) || productStock < 0 || !Array.isArray(batches)) {
     throw new TypeError("Data stok produk tidak valid.");
