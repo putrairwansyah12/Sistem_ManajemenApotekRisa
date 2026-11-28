@@ -1,8 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useId, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { DashboardView } from "../components/dashboard-view";
+import {
+  InputField,
+  InventoryTabs,
+  MetricCard,
+  PasswordField,
+  TableSearch,
+} from "../components/form-controls";
+import {
+  ExpensesTable,
+  ExcelImportTable,
+  ExpiryTable,
+  PriceHistoryTable,
+  ProductsTable,
+  ReportMetricTable,
+  ReportTable,
+  SalesTable,
+  StockTable,
+  UsersTable,
+  reportMetricLabels,
+} from "../components/data-tables";
+import { ReceiptModal } from "../components/receipt-modal";
+import { containerVariants, itemVariants } from "../components/motion-presets";
+import { CalculatorScreen } from "../components/screens/calculator-screen";
+import { HistoryScreen } from "../components/screens/history-screen";
+import { ProductsScreen } from "../components/screens/products-screen";
+import { SalesScreen } from "../components/screens/sales-screen";
+import { ExpensesScreen } from "../components/screens/expenses-screen";
+import { ReportsScreen } from "../components/screens/reports-screen";
+import { ExcelScreen } from "../components/screens/excel-screen";
+import { PricesScreen } from "../components/screens/prices-screen";
+import { StockScreen } from "../components/screens/stock-screen";
+import { ExpiryScreen } from "../components/screens/expiry-screen";
+import { BackupScreen } from "../components/screens/backup-screen";
+import { UsersScreen } from "../components/screens/users-screen";
 import {
   LayoutDashboard,
   Package,
@@ -82,25 +117,12 @@ const menuGroups = [
   },
 ];
 
-const menuSections = [
-  { title: "MENU UTAMA", ids: ["dashboard", "products", "sales", "history"] },
-  { title: "MANAJEMEN & SISTEM", ids: ["calculator", "prices", "expenses", "reports", "excel", "stock", "backup", "users"] },
-];
-
-const reportMetricLabels = {
-  omzet: "Omzet",
-  jumlahKunjungan: "Jumlah kunjungan",
-  labaKotor: "Laba kotor",
-  biayaOperasional: "Biaya operasional",
-  labaBersih: "Laba bersih",
-};
-
 const currency = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
   maximumFractionDigits: 0,
 });
-const receiptNumber = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
+
 const SALES_PAGE_SIZE = 25;
 
 function money(value) {
@@ -162,32 +184,11 @@ async function request(url, options) {
 }
 
 // Framer Motion Animation Variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-      delayChildren: 0.02,
-    },
-  },
-};
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.35,
-      ease: [0.16, 1, 0.3, 1],
-    },
-  },
-};
 
-const cardHoverProps = {
-  whileHover: { y: -3, transition: { duration: 0.18, ease: "easeOut" } },
-};
+
+
+
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -1070,7 +1071,6 @@ export default function Home() {
       </div>
     );
   }
-
   // Login Screen (Refined Professional SaaS Card)
   if (!user) {
     return (
@@ -1395,1611 +1395,229 @@ export default function Home() {
               )}
 
               {screen === "products" && (
-                <div className="space-y-6">
-                  <InventoryTabs activeTab="products" onSelect={selectInventoryTab} />
-
-                  {/* Add Product Form */}
-                  {user.role === "PEMILIK" && !summaryDetail && (
-                    <motion.div
-                      variants={itemVariants}
-                      className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
-                        <div>
-                          <h2 className="text-sm font-bold text-slate-900">Tambah Obat Baru</h2>
-                          <p className="text-xs text-slate-500">
-                            Masukkan detail produk dan persediaan awal ke katalog.
-                          </p>
-                        </div>
-                      </div>
-                      <form onSubmit={createProduct} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                          <InputField name="namaProduk" label="Nama Obat" required />
-                          <InputField name="kodeBarang" label="Kode Barang" placeholder="Contoh: OB-001" />
-                          <InputField name="kategori" label="Kategori" placeholder="Contoh: Obat Bebas" required />
-                          <InputField name="satuan" label="Satuan" placeholder="Contoh: Strip, Botol" required />
-                          <InputField name="hargaBeli" label="Harga Beli / HPP" type="number" min="0" required />
-                          <InputField name="hargaJual" label="Harga Jual" type="number" min="0" required />
-                          <InputField name="stok" label="Stok Awal" type="number" min="0" required />
-                          <InputField name="stokMinimum" label="Batas Stok Menipis" type="number" min="0" required />
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={busy}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-60"
-                          >
-                            <Plus size={15} />
-                            <span>Simpan Obat</span>
-                          </button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-
-                  {/* Edit Product Form */}
-                  {editingProduct && (
-                    <motion.div
-                      ref={editProductFormRef}
-                      variants={itemVariants}
-                      className="bg-purple-50/50 border border-purple-200 rounded-2xl p-6 shadow-xs"
-                    >
-                      <div className="flex items-center justify-between mb-5 pb-3 border-b border-purple-100">
-                        <div>
-                          <h2 className="text-sm font-bold text-purple-900">Ubah Data Obat</h2>
-                          <p className="text-xs text-purple-700">{editingProduct.namaProduk}</p>
-                        </div>
-                      </div>
-                      <form onSubmit={saveProductEdit} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                          <InputField name="namaProduk" label="Nama Obat" defaultValue={editingProduct.namaProduk} required />
-                          <InputField name="kodeBarang" label="Kode Barang" defaultValue={editingProduct.kodeBarang || ""} />
-                          <InputField name="kategori" label="Kategori" defaultValue={editingProduct.kategori.nama} required />
-                          <InputField name="satuan" label="Satuan" defaultValue={editingProduct.satuan.kode} required />
-                          <InputField name="hargaBeli" label="Harga Beli" type="number" min="0" step="0.01" defaultValue={editingProduct.hargaBeli} required />
-                          <InputField name="hpp" label="HPP" type="number" min="0" step="0.01" defaultValue={editingProduct.hpp} required />
-                          <InputField name="hargaJual" label="Harga Jual" type="number" min="0" step="0.01" defaultValue={editingProduct.hargaJual} required />
-                          <InputField name="stokMinimum" label="Batas Stok Menipis" type="number" min="0" step="1" defaultValue={editingProduct.stokMinimum} required />
-                        </div>
-                        <div className="flex items-center justify-end gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingProduct(null)}
-                            className="px-4 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-xs font-semibold rounded-xl"
-                          >
-                            Batal
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={busy}
-                            className="inline-flex items-center gap-2 px-5 py-2 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-60"
-                          >
-                            <Check size={15} />
-                            <span>Simpan Perubahan</span>
-                          </button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-
-                  {/* Catalog Table */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">
-                          {summaryDetail === "lowStock" ? "Produk Stok Menipis" : "Katalog Obat & Persediaan"}
-                        </h2>
-                        <p className="text-xs text-slate-500">Tersedia {filtered.length} produk di sistem.</p>
-                      </div>
-                      <div className="w-full sm:w-64">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari nama atau kode obat..." />
-                      </div>
-                    </div>
-
-                    <ProductsTable
-                      products={filtered}
-                      money={money}
-                      onArchive={archiveProduct}
-                      onPriceChange={changePrice}
-                      onEdit={setEditingProduct}
-                      owner={user.role === "PEMILIK"}
-                    />
-                  </motion.div>
-                </div>
+                <ProductsScreen
+                  user={user}
+                  summaryDetail={summaryDetail}
+                  onSelectInventoryTab={selectInventoryTab}
+                  busy={busy}
+                  onCreateProduct={createProduct}
+                  editingProduct={editingProduct}
+                  editFormRef={editProductFormRef}
+                  onSaveProductEdit={saveProductEdit}
+                  onCancelEdit={() => setEditingProduct(null)}
+                  filtered={filtered}
+                  query={query}
+                  onQueryChange={setQuery}
+                  money={money}
+                  onArchive={archiveProduct}
+                  onPriceChange={changePrice}
+                  onEdit={setEditingProduct}
+                />
               )}
 
               {screen === "calculator" && user.role === "PEMILIK" && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Form & Product Selection */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Hitung Harga Jual Optimal</h2>
-                        <p className="text-xs text-slate-500">
-                          Simulasi margin laba dan kalkulasi struktur biaya e-commerce Shopee.
-                        </p>
-                      </div>
-                      <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setPriceMode("single")}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                            priceMode === "single"
-                              ? "bg-white text-[#5936A8] shadow-xs"
-                              : "text-slate-500 hover:text-slate-900"
-                          }`}
-                        >
-                          Satu Obat
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPriceMode("bulk")}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
-                            priceMode === "bulk"
-                              ? "bg-white text-[#5936A8] shadow-xs"
-                              : "text-slate-500 hover:text-slate-900"
-                          }`}
-                        >
-                          <span>Banyak Obat (Massal)</span>
-                          {selectedBulkProductIds.length > 0 && (
-                            <span className="px-1.5 py-0.5 bg-[#5936A8] text-white rounded-full text-[10px] leading-none font-bold">
-                              {selectedBulkProductIds.length}
-                            </span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Mode Single: Single Product Selection */}
-                    {priceMode === "single" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Obat</label>
-                          <select
-                            name="produkId"
-                            value={priceForm.produkId}
-                            onChange={changePriceInput}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#5936A8] focus:bg-white transition-all"
-                          >
-                            <option value="" disabled>Pilih obat dari katalog</option>
-                            {data.map((p) => (
-                              <option value={p.id} key={p.id}>
-                                {p.namaProduk} (Stok: {p.stok})
-                              </option>
-                            ))}
-                          </select>
-                          {selectedPriceProduct && (
-                            <p className="text-[11px] text-[#5936A8] mt-1 font-semibold">
-                              Harga beli saat ini: {money(selectedPriceProduct.hargaBeli)} · Harga jual: {money(selectedPriceProduct.hargaJual)}
-                            </p>
-                          )}
-                        </div>
-
-                        <InputField name="hpp" label="HPP (Harga Pokok)" type="number" min="0" step="0.01" value={priceForm.hpp} onChange={changePriceInput} required />
-                        <InputField name="persenTargetLaba" label="Target Margin / Laba (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenTargetLaba} onChange={changePriceInput} required />
-                        <InputField name="persenBiayaAdmin" label="Biaya Admin Marketplace (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenBiayaAdmin} onChange={changePriceInput} required />
-                        <InputField name="persenPajak" label="Biaya Pajak (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenPajak} onChange={changePriceInput} required />
-                        <InputField name="biayaPengemasan" label="Biaya Pengemasan / Unit (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaPengemasan} onChange={changePriceInput} required />
-                        <InputField name="biayaLayanan" label="Biaya Layanan / Unit (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaLayanan} onChange={changePriceInput} required />
-                        <InputField name="biayaGratisOngkir" label="Subsidi Gratis Ongkir / Unit (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaGratisOngkir} onChange={changePriceInput} required />
-                      </div>
-                    )}
-
-                    {/* Mode Bulk: Mass Product Selection */}
-                    {priceMode === "bulk" && (
-                      <div className="space-y-4">
-                        {/* Parameters Card */}
-                        <div className="bg-purple-50/40 p-4 rounded-xl border border-purple-100/80 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#5936A8] uppercase tracking-wider">
-                              Parameter Biaya E-Commerce Terpadu
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              Diterapkan serentak ke seluruh obat yang dicentang
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <InputField name="persenTargetLaba" label="Target Laba (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenTargetLaba} onChange={changePriceInput} required />
-                            <InputField name="persenBiayaAdmin" label="Biaya Admin (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenBiayaAdmin} onChange={changePriceInput} required />
-                            <InputField name="persenPajak" label="Biaya Pajak (%)" type="number" min="0" max="99.99" step="0.01" value={priceForm.persenPajak} onChange={changePriceInput} required />
-                            <InputField name="biayaPengemasan" label="Kemasan / Unit (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaPengemasan} onChange={changePriceInput} required />
-                            <InputField name="biayaLayanan" label="Layanan / Unit (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaLayanan} onChange={changePriceInput} required />
-                            <InputField name="biayaGratisOngkir" label="Gratis Ongkir (Rp)" type="number" min="0" step="0.01" value={priceForm.biayaGratisOngkir} onChange={changePriceInput} required />
-                          </div>
-                        </div>
-
-                        {/* Search & Category Filter */}
-                        <div className="space-y-2.5">
-                          <div className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center justify-between">
-                            <div className="relative flex-1">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                              <input
-                                type="text"
-                                placeholder="Cari obat massal (nama atau barcode)..."
-                                value={bulkSearchQuery}
-                                onChange={(e) => setBulkSearchQuery(e.target.value)}
-                                className="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#5936A8] focus:bg-white transition-all"
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const idsToAdd = bulkAvailableProducts.map((p) => p.id);
-                                  setSelectedBulkProductIds((prev) => Array.from(new Set([...prev, ...idsToAdd])));
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-purple-100 text-[#5936A8] text-xs font-semibold rounded-xl transition-colors whitespace-nowrap"
-                              >
-                                Pilih Semua ({bulkAvailableProducts.length})
-                              </button>
-                              {selectedBulkProductIds.length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedBulkProductIds([])}
-                                  className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-semibold rounded-xl transition-colors whitespace-nowrap"
-                                >
-                                  Reset Pilihan
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Category Filter Pills */}
-                          <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px] no-scrollbar">
-                            {pricingCategories.map((cat) => (
-                              <button
-                                key={cat}
-                                type="button"
-                                onClick={() => setBulkCategoryFilter(cat)}
-                                className={`px-2.5 py-1 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                                  bulkCategoryFilter === cat
-                                    ? "bg-[#5936A8] text-white"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                }`}
-                              >
-                                {cat === "all" ? "Semua Kategori" : cat}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Product Checkbox Selection List */}
-                        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto bg-slate-50/50">
-                          {bulkAvailableProducts.slice(0, 300).map((product) => {
-                            const isSelected = selectedBulkProductIds.includes(product.id);
-                            const cost = getCalculatorHpp(product);
-                            return (
-                              <label
-                                key={product.id}
-                                className={`p-2.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-purple-50/40 transition-colors ${
-                                  isSelected ? "bg-purple-50/60" : ""
-                                }`}
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedBulkProductIds((prev) => [...prev, product.id]);
-                                      } else {
-                                        setSelectedBulkProductIds((prev) => prev.filter((id) => id !== product.id));
-                                      }
-                                    }}
-                                    className="rounded border-slate-300 text-[#5936A8] focus:ring-[#5936A8] w-4 h-4 cursor-pointer"
-                                  />
-                                  <div className="truncate">
-                                    <span className="text-xs font-bold text-slate-900 block truncate">
-                                      {product.namaProduk}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400">
-                                      {product.kategori?.nama || "Umum"} · HPP: {money(cost.value)} · Jual Saat Ini: {money(product.hargaJual)}
-                                    </span>
-                                  </div>
-                                </div>
-                                <span className={`text-[11px] font-bold shrink-0 px-2 py-0.5 rounded-md ${
-                                  isSelected ? "bg-[#5936A8] text-white" : "bg-slate-200 text-slate-600"
-                                }`}>
-                                  {isSelected ? "Terpilih" : "Pilih"}
-                                </span>
-                              </label>
-                            );
-                          })}
-                          {!bulkAvailableProducts.length && (
-                            <div className="py-8 text-center text-slate-400 text-xs">
-                              Tidak ada obat yang cocok dengan filter.
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500">
-                      <span>{priceMode === "single" ? priceSourceNote : "Kalkulasi massal otomatis menggunakan HPP/Harga Beli tersimpan dari tiap obat terpilih."}</span>
-                      {priceError && <p className="text-rose-600 font-semibold mt-1">{priceError}</p>}
-                    </div>
-                  </motion.div>
-
-                  {/* Right Column: Preview & Apply Button */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs flex flex-col justify-between space-y-4"
-                  >
-                    {priceMode === "single" ? (
-                      <div>
-                        <div className="border-b border-slate-100 pb-3 mb-4">
-                          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Hasil Rekomendasi Satuan</h3>
-                          <p className="text-xs text-slate-500 font-medium mt-0.5">
-                            {selectedPriceProduct?.namaProduk || "Pilih obat terlebih dahulu"}
-                          </p>
-                        </div>
-
-                        {priceResult ? (
-                          <div className="space-y-4">
-                            <div className="p-5 bg-purple-50/70 border border-purple-100 rounded-2xl text-center">
-                              <span className="text-[10px] font-bold text-[#5936A8] uppercase tracking-wider block mb-1">
-                                Harga Jual Disarankan
-                              </span>
-                              <span className="text-3xl font-extrabold text-[#5936A8] block tracking-tight">
-                                {money(priceResult.hargaJual)}
-                              </span>
-                            </div>
-
-                            <div className="space-y-2 text-xs divide-y divide-slate-100">
-                              <div className="flex justify-between py-1.5 text-slate-600">
-                                <span>Harga Jual Saat Ini</span>
-                                <span className="font-semibold text-slate-800">{money(selectedPriceProduct?.hargaJual)}</span>
-                              </div>
-                              <div className="flex justify-between py-1.5 text-slate-600">
-                                <span>Laba Kotor per Unit</span>
-                                <span className="font-semibold text-emerald-600">{money(priceResult.labaKotor)}</span>
-                              </div>
-                              <div className="flex justify-between py-1.5 text-slate-600">
-                                <span>Estimasi Laba Bersih</span>
-                                <span className="font-bold text-[#5936A8]">{money(priceResult.labaBersih)}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="py-12 text-center text-slate-400 text-xs">
-                            Pilih obat dan tentukan parameter untuk melihat hasil kalkulasi harga.
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          disabled={busy || !priceDraft}
-                          onClick={saveSuggestedPrice}
-                          className="w-full mt-6 py-2.5 px-4 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          <Check size={15} />
-                          <span>Simpan Harga ke Produk</span>
-                        </button>
-                      </div>
-                    ) : (
-                      /* Bulk Right Column */
-                      <div className="space-y-4 flex flex-col h-full justify-between">
-                        <div>
-                          <div className="border-b border-slate-100 pb-3 mb-3 flex items-center justify-between">
-                            <div>
-                              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Hasil Rekomendasi Massal</h3>
-                              <p className="text-[11px] text-slate-500 font-medium">
-                                Pratinjau perhitungan untuk seluruh obat yang dicentang.
-                              </p>
-                            </div>
-                            <span className="px-2.5 py-1 bg-purple-50 text-[#5936A8] font-extrabold text-xs rounded-xl border border-purple-100">
-                              {bulkCalculations.length} Obat
-                            </span>
-                          </div>
-
-                          {bulkCalculations.length > 0 ? (
-                            <div className="space-y-3">
-                              {/* Preview Table */}
-                              <div className="border border-slate-200 rounded-xl overflow-hidden max-h-96 overflow-y-auto">
-                                <table className="w-full text-left text-[11px]">
-                                  <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 sticky top-0">
-                                    <tr>
-                                      <th className="py-2 px-2.5">Produk</th>
-                                      <th className="py-2 px-2 text-right">HPP</th>
-                                      <th className="py-2 px-2 text-right">Lama</th>
-                                      <th className="py-2 px-2.5 text-right text-[#5936A8]">Baru</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
-                                    {bulkCalculations.map((item) => (
-                                      <tr key={item.product.id} className="hover:bg-slate-50/60">
-                                        <td className="py-2 px-2.5 max-w-[140px] truncate font-medium text-slate-800" title={item.product.namaProduk}>
-                                          {item.product.namaProduk}
-                                        </td>
-                                        <td className="py-2 px-2 text-right text-slate-500">
-                                          {money(item.cost.value)}
-                                        </td>
-                                        <td className="py-2 px-2 text-right text-slate-400 line-through">
-                                          {money(item.product.hargaJual)}
-                                        </td>
-                                        <td className="py-2 px-2.5 text-right font-extrabold text-[#5936A8]">
-                                          {item.calc ? money(item.calc.hargaJual) : "Error"}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="py-16 text-center text-slate-400 text-xs">
-                              <Box size={28} className="mx-auto mb-2 text-slate-300 opacity-80" />
-                              <p className="font-semibold text-slate-600">Belum ada obat yang dipilih</p>
-                              <p className="text-[11px] text-slate-400 mt-1">
-                                Centang obat di kolom sebelah kiri untuk menghitung rekomendasi harga serentak.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="pt-3 border-t border-slate-100">
-                          <button
-                            type="button"
-                            disabled={busy || bulkCalculations.length === 0}
-                            onClick={saveBulkSuggestedPrices}
-                            className="w-full py-2.5 px-4 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            <Check size={15} />
-                            <span>Terapkan Harga ke {bulkCalculations.length} Obat Terpilih</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                </div>
+                <CalculatorScreen
+                  priceMode={priceMode}
+                  setPriceMode={setPriceMode}
+                  selectedBulkProductIds={selectedBulkProductIds}
+                  priceForm={priceForm}
+                  changePriceInput={changePriceInput}
+                  data={data}
+                  selectedPriceProduct={selectedPriceProduct}
+                  money={money}
+                  bulkSearchQuery={bulkSearchQuery}
+                  setBulkSearchQuery={setBulkSearchQuery}
+                  bulkAvailableProducts={bulkAvailableProducts}
+                  setSelectedBulkProductIds={setSelectedBulkProductIds}
+                  bulkCategoryFilter={bulkCategoryFilter}
+                  setBulkCategoryFilter={setBulkCategoryFilter}
+                  pricingCategories={pricingCategories}
+                  priceSourceNote={priceSourceNote}
+                  priceError={priceError}
+                  priceResult={priceResult}
+                  priceDraft={priceDraft}
+                  busy={busy}
+                  saveSuggestedPrice={saveSuggestedPrice}
+                  bulkCalculations={bulkCalculations}
+                  saveBulkSuggestedPrices={saveBulkSuggestedPrices}
+                />
               )}
 
               {screen === "sales" && (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                  {/* Left Column: Product Picker */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Pilih Obat</h2>
-                        <p className="text-xs text-slate-500">{filtered.length} produk siap dijual.</p>
-                      </div>
-                      <div className="w-full sm:w-60">
-                        <TableSearch
-                          value={query}
-                          onChange={(value) => {
-                            setQuery(value);
-                            setSalesPage(1);
-                          }}
-                          placeholder="Cari nama obat..."
-                        />
-                      </div>
-                    </div>
-
-                    <div className="divide-y divide-slate-100 pr-1">
-                      {salesPageProducts.map((product) => (
-                        <div
-                          key={product.id}
-                          className="py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-xl transition-colors"
-                        >
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block">{product.namaProduk}</span>
-                            <span className="text-[11px] text-slate-400">
-                              {product.kodeBarang || "Tanpa kode"} · Stok: {product.stok} {product.satuan.kode}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <span className="text-xs font-bold text-slate-800">{money(product.hargaJual)}</span>
-                            <button
-                              disabled={!product.stok || busy}
-                              onClick={() =>
-                                setCart((items) => {
-                                  const found = items.find((item) => item.id === product.id);
-                                  if (found) {
-                                    return items.map((item) =>
-                                      item.id === product.id
-                                        ? { ...item, quantity: Math.min(item.quantity + 1, product.stok) }
-                                        : item
-                                    );
-                                  }
-                                  return [...items, { id: product.id, quantity: 1, product }];
-                                })
-                              }
-                              className="w-8 h-8 rounded-xl bg-purple-50 hover:bg-[#5936A8] text-[#5936A8] hover:text-white flex items-center justify-center transition-all disabled:opacity-40"
-                              title="Tambah ke keranjang"
-                            >
-                              <Plus size={15} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      {!filtered.length && (
-                        <div className="py-12 text-center text-slate-400 text-xs">
-                          Tidak ada obat yang cocok dengan pencarian.
-                        </div>
-                      )}
-                    </div>
-                    {filtered.length > 0 && (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                        <span className="text-[11px] text-slate-500">
-                          Menampilkan {salesPageStart + 1}–{Math.min(salesPageStart + SALES_PAGE_SIZE, filtered.length)} dari {filtered.length} obat
-                        </span>
-                        <div className="flex items-center justify-between sm:justify-end gap-3">
-                          <button
-                            type="button"
-                            disabled={activeSalesPage === 1}
-                            onClick={() => setSalesPage((page) => Math.max(1, page - 1))}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Sebelumnya
-                          </button>
-                          <span className="min-w-[88px] text-center text-[11px] font-medium text-slate-600">
-                            Halaman {activeSalesPage} / {salesPageCount}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={activeSalesPage === salesPageCount}
-                            onClick={() => setSalesPage((page) => Math.min(salesPageCount, page + 1))}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                          >
-                            Selanjutnya
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-
-                  {/* Right Column: Cart Panel */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 sticky top-24"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div>
-                        <h3 className="text-sm font-bold text-slate-900">Keranjang Transaksi</h3>
-                        <p className="text-xs text-slate-400">
-                          {cart.reduce((sum, item) => sum + item.quantity, 0)} item dipilih
-                        </p>
-                      </div>
-                      {cart.length > 0 && (
-                        <button
-                          onClick={() => setCart([])}
-                          className="text-[11px] text-rose-600 hover:underline font-semibold"
-                        >
-                          Kosongkan
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Cart Items List */}
-                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1 divide-y divide-slate-100">
-                      {cart.map((item) => (
-                        <div key={item.id} className="pt-2.5 first:pt-0 flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <span className="text-xs font-semibold text-slate-800 block truncate">
-                              {item.product.namaProduk}
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              {money(item.product.hargaJual)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
-                              <button
-                                onClick={() =>
-                                  setCart((items) =>
-                                    items
-                                      .map((e) => (e.id === item.id ? { ...e, quantity: e.quantity - 1 } : e))
-                                      .filter((e) => e.quantity > 0)
-                                  )
-                                }
-                                className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-100"
-                              >
-                                <Minus size={12} />
-                              </button>
-                              <span className="w-8 text-center text-xs font-bold text-slate-800">
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() =>
-                                  setCart((items) =>
-                                    items.map((e) =>
-                                      e.id === item.id
-                                        ? { ...e, quantity: Math.min(e.quantity + 1, e.product.stok) }
-                                        : e
-                                    )
-                                  )
-                                }
-                                className="w-7 h-7 flex items-center justify-center text-slate-600 hover:bg-slate-100"
-                              >
-                                <Plus size={12} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {!cart.length && (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          Keranjang kosong. Pilih obat dari daftar sebelah kiri.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Transaction Options */}
-                    <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">Jenis Transaksi</label>
-                        <select
-                          name="jenis"
-                          value={saleSettings.jenis}
-                          onChange={changeSaleSetting}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                        >
-                          <option value="OFFLINE">Offline</option>
-                          <option value="ONLINE">Online</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">Diskon / Potongan</label>
-                        <input
-                          name="potongan"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={saleSettings.potongan}
-                          onChange={changeSaleSetting}
-                          className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Total Amount */}
-                    <div className="pt-4 border-t border-slate-200 flex items-baseline justify-between">
-                      <span className="text-xs font-medium text-slate-500">Total Pembayaran</span>
-                      <span className="text-xl font-bold text-slate-900">
-                        {money(
-                          Math.max(
-                            0,
-                            cart.reduce(
-                              (sum, item) => sum + Number(item.product.hargaJual) * item.quantity,
-                              0
-                            ) - Number(saleSettings.potongan || 0)
-                          )
-                        )}
-                      </span>
-                    </div>
-
-                    <button
-                      disabled={!cart.length || busy}
-                      onClick={checkout}
-                      className="w-full py-2.5 bg-[#5936A8] hover:bg-[#472985] active:scale-[0.99] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart size={15} />
-                      <span>{busy ? "Memproses Transaksi..." : "Selesaikan Transaksi"}</span>
-                    </button>
-                  </motion.div>
-                </div>
+                <SalesScreen
+                  filtered={filtered}
+                  money={money}
+                  query={query}
+                  onQueryChange={(value) => {
+                    setQuery(value);
+                    setSalesPage(1);
+                  }}
+                  salesPageProducts={salesPageProducts}
+                  busy={busy}
+                  setCart={setCart}
+                  salesPageStart={salesPageStart}
+                  pageSize={SALES_PAGE_SIZE}
+                  activeSalesPage={activeSalesPage}
+                  salesPageCount={salesPageCount}
+                  setSalesPage={setSalesPage}
+                  cart={cart}
+                  saleSettings={saleSettings}
+                  changeSaleSetting={changeSaleSetting}
+                  checkout={checkout}
+                />
               )}
 
               {screen === "history" && (
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900">
-                        {summaryDetail === "todayRevenue" ? "Transaksi Hari Ini" : "Riwayat Semua Transaksi"}
-                      </h2>
-                      <p className="text-xs text-slate-500">
-                        {summaryDetail === "todayRevenue"
-                          ? `${historyTotal} transaksi · Total omzet ${money(dashboard?.todayRevenue)}`
-                          : `${historyTotal} transaksi ditemukan pada periode ini.`}
-                      </p>
-                    </div>
-                    <div className="w-full sm:w-64">
-                      <TableSearch
-                        value={query}
-                        onChange={(value) => {
-                          setQuery(value);
-                          setHistoryPage(1);
-                          loadScreen("history", {
-                            historyFilter: appliedHistoryFilter,
-                            historyPage: 1,
-                            query: value,
-                          });
-                        }}
-                        placeholder="Cari transaksi, obat, atau kasir..."
-                      />
-                    </div>
-                  </div>
-
-                  <form
-                    onSubmit={applyHistoryFilter}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_auto] items-end gap-3 rounded-xl bg-slate-50 p-4"
-                  >
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-700" htmlFor="history-period">
-                        Tampilkan berdasarkan
-                      </label>
-                      <select
-                        id="history-period"
-                        value={historyFilter.period}
-                        onChange={(event) =>
-                          setHistoryFilter((current) => ({ ...current, period: event.target.value }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800"
-                      >
-                        <option value="day">Tanggal</option>
-                        <option value="month">Bulan</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-700" htmlFor="history-date">
-                        {historyFilter.period === "day" ? "Pilih tanggal" : "Pilih bulan"}
-                      </label>
-                      <input
-                        id="history-date"
-                        type={historyFilter.period === "day" ? "date" : "month"}
-                        value={
-                          historyFilter.period === "month"
-                            ? historyFilter.date.slice(0, 7)
-                            : historyFilter.date
-                        }
-                        onChange={(event) =>
-                          setHistoryFilter((current) => ({
-                            ...current,
-                            date:
-                              current.period === "month"
-                                ? event.target.value
-                                  ? `${event.target.value}-01`
-                                  : ""
-                                : event.target.value,
-                          }))
-                        }
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5936A8] px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#472985]"
-                    >
-                      <Search size={14} />
-                      Tampilkan
-                    </button>
-                  </form>
-
-                  <SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} />
-                  {historyTotal > 0 && (
-                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-[11px] text-slate-500">
-                        Menampilkan {(historyPage - 1) * SALES_PAGE_SIZE + 1}–
-                        {Math.min(historyPage * SALES_PAGE_SIZE, historyTotal)} dari {historyTotal} transaksi
-                      </span>
-                      <div className="flex items-center justify-between gap-3 sm:justify-end">
-                        <button
-                          type="button"
-                          disabled={historyPage <= 1}
-                          onClick={() => {
-                            const nextPage = historyPage - 1;
-                            setHistoryPage(nextPage);
-                            loadScreen("history", {
-                              historyFilter: appliedHistoryFilter,
-                              historyPage: nextPage,
-                              query,
-                            });
-                          }}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Sebelumnya
-                        </button>
-                        <span className="min-w-[88px] text-center text-[11px] font-medium text-slate-600">
-                          Halaman {historyPage} / {historyPageCount}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={historyPage >= historyPageCount}
-                          onClick={() => {
-                            const nextPage = historyPage + 1;
-                            setHistoryPage(nextPage);
-                            loadScreen("history", {
-                              historyFilter: appliedHistoryFilter,
-                              historyPage: nextPage,
-                              query,
-                            });
-                          }}
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          Selanjutnya
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </motion.div>
+                <HistoryScreen
+                  summaryDetail={summaryDetail}
+                  historyTotal={historyTotal}
+                  dashboard={dashboard}
+                  money={money}
+                  query={query}
+                  onSearchChange={(value) => {
+                    setQuery(value);
+                    setHistoryPage(1);
+                    loadScreen("history", {
+                      historyFilter: appliedHistoryFilter,
+                      historyPage: 1,
+                      query: value,
+                    });
+                  }}
+                  historyFilter={historyFilter}
+                  onHistoryFilterChange={setHistoryFilter}
+                  onApplyFilter={applyHistoryFilter}
+                  filtered={filtered}
+                  date={date}
+                  onReceipt={setReceiptSale}
+                  historyPage={historyPage}
+                  historyPageCount={historyPageCount}
+                  pageSize={SALES_PAGE_SIZE}
+                  onPageChange={(nextPage) => {
+                    setHistoryPage(nextPage);
+                    loadScreen("history", {
+                      historyFilter: appliedHistoryFilter,
+                      historyPage: nextPage,
+                      query,
+                    });
+                  }}
+                />
               )}
 
               {screen === "expenses" && user.role === "PEMILIK" && (
-                <div className="space-y-6">
-                  {/* Expense Form */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs"
-                  >
-                    <div className="border-b border-slate-100 pb-3 mb-4">
-                      <h2 className="text-sm font-bold text-slate-900">Catat Biaya Operasional</h2>
-                      <p className="text-xs text-slate-500">
-                        Biaya yang dicatat akan mengurangi laba bersih pada laporan keuangan periode terkait.
-                      </p>
-                    </div>
-                    <form onSubmit={createExpense} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                        <InputField
-                          name="tanggal"
-                          label="Tanggal"
-                          type="date"
-                          value={expenseDate}
-                          onChange={(e) => setExpenseDate(e.target.value)}
-                          required
-                        />
-                        <InputField name="kategori" label="Kategori Biaya" placeholder="Contoh: Listrik, Sewa, Gaji" required />
-                        <InputField name="deskripsi" label="Keterangan Pengeluaran" placeholder="Contoh: Tagihan Listrik PLN" required />
-                        <InputField name="jumlah" label="Jumlah Biaya (Rp)" type="number" min="0.01" step="0.01" required />
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="submit"
-                          disabled={busy}
-                          className="px-5 py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-60 flex items-center gap-2"
-                        >
-                          <Plus size={15} />
-                          <span>Simpan Biaya</span>
-                        </button>
-                      </div>
-                    </form>
-                  </motion.div>
-
-                  {/* Expense Table */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Daftar Biaya Operasional</h2>
-                        <p className="text-xs text-slate-500">{filtered.length} catatan biaya tersimpan.</p>
-                      </div>
-                      <div className="w-full sm:w-60">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari keterangan..." />
-                      </div>
-                    </div>
-                    <ExpensesTable expenses={filtered} money={money} date={date} onDelete={deleteExpense} />
-                  </motion.div>
-                </div>
+                <ExpensesScreen
+                  filtered={filtered}
+                  query={query}
+                  setQuery={setQuery}
+                  createExpense={createExpense}
+                  expenseDate={expenseDate}
+                  setExpenseDate={setExpenseDate}
+                  busy={busy}
+                  money={money}
+                  date={date}
+                  deleteExpense={deleteExpense}
+                />
               )}
 
               {screen === "reports" && user.role === "PEMILIK" && (
-                <div className="space-y-6">
-                  {/* Filter Form */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs"
-                  >
-                    <form onSubmit={refreshReport} className="flex flex-col sm:flex-row sm:items-end gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Periode Laporan</label>
-                        <select
-                          value={reportFilter.period}
-                          onChange={(e) => setReportFilter((c) => ({ ...c, period: e.target.value }))}
-                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                        >
-                          <option value="day">Harian</option>
-                          <option value="month">Bulanan</option>
-                          <option value="year">Tahunan</option>
-                        </select>
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tanggal Acuan</label>
-                        <input
-                          type="date"
-                          value={reportFilter.date}
-                          onChange={(e) => setReportFilter((c) => ({ ...c, date: e.target.value }))}
-                          required
-                          className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={busy}
-                        className="px-5 py-2 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-                      >
-                        <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
-                        <span>Tampilkan Laporan</span>
-                      </button>
-                    </form>
-                  </motion.div>
-
-                  {/* Financial Metrics Cards */}
-                  {report && (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <MetricCard
-                          title="Omzet Penjualan"
-                          value={money(report.omzet)}
-                          note={`${report.jumlahTransaksi} transaksi`}
-                          icon={DollarSign}
-                          selected={reportDetail === "omzet"}
-                          onClick={() => setReportDetail((c) => (c === "omzet" ? null : "omzet"))}
-                        />
-                        <MetricCard
-                          title="Jumlah Kunjungan"
-                          value={report.jumlahKunjungan}
-                          note="Sesuai transaksi"
-                          icon={Users}
-                          selected={reportDetail === "jumlahKunjungan"}
-                          onClick={() => setReportDetail((c) => (c === "jumlahKunjungan" ? null : "jumlahKunjungan"))}
-                        />
-                        <MetricCard
-                          title="Laba Kotor"
-                          value={money(report.labaKotor)}
-                          note="Harga jual - HPP"
-                          icon={ArrowUpRight}
-                          selected={reportDetail === "labaKotor"}
-                          onClick={() => setReportDetail((c) => (c === "labaKotor" ? null : "labaKotor"))}
-                        />
-                        <MetricCard
-                          title="Biaya Operasional"
-                          value={money(report.biayaOperasional)}
-                          note="Pada periode terpilih"
-                          icon={TrendingDown}
-                          warning
-                          selected={reportDetail === "biayaOperasional"}
-                          onClick={() => setReportDetail((c) => (c === "biayaOperasional" ? null : "biayaOperasional"))}
-                        />
-                        <MetricCard
-                          title="Laba Bersih"
-                          value={money(report.labaBersih)}
-                          note="Setelah biaya & pajak"
-                          icon={Sparkles}
-                          selected={reportDetail === "labaBersih"}
-                          onClick={() => setReportDetail((c) => (c === "labaBersih" ? null : "labaBersih"))}
-                        />
-                      </div>
-
-                      {/* Detail Table */}
-                      <motion.div
-                        variants={itemVariants}
-                        className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                      >
-                        {reportDetail ? (
-                          <>
-                            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                              <div>
-                                <h2 className="text-sm font-bold text-slate-900">
-                                  Rincian {reportMetricLabels[reportDetail]}
-                                </h2>
-                                <p className="text-xs text-slate-500">Nilai untuk setiap sub-periode laporan.</p>
-                              </div>
-                              <button
-                                onClick={() => setReportDetail(null)}
-                                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-                              >
-                                <X size={16} />
-                              </button>
-                            </div>
-                            <ReportMetricTable rows={report.data} metric={reportDetail} money={money} />
-                          </>
-                        ) : (
-                          <>
-                            <div className="border-b border-slate-100 pb-3">
-                              <h2 className="text-sm font-bold text-slate-900">Rincian Per Periode</h2>
-                              <p className="text-xs text-slate-500">Rekapitulasi lengkap omzet, biaya, dan laba.</p>
-                            </div>
-                            <ReportTable rows={report.data} money={money} />
-                          </>
-                        )}
-                      </motion.div>
-                    </>
-                  )}
-                </div>
+                <ReportsScreen
+                  reportFilter={reportFilter}
+                  setReportFilter={setReportFilter}
+                  refreshReport={refreshReport}
+                  busy={busy}
+                  report={report}
+                  money={money}
+                  reportDetail={reportDetail}
+                  setReportDetail={setReportDetail}
+                />
               )}
 
               {screen === "excel" && user.role === "PEMILIK" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Export Excel Card */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="h-full bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-4">
-                        <Download size={20} />
-                      </div>
-                      <h2 className="text-sm font-bold text-slate-900">Ekspor Katalog Produk (.xlsx)</h2>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Unduh seluruh katalog obat aktif ke format file Excel (.xlsx) untuk kebutuhan arsip, laporan stok fisik, atau rekonsiliasi berkala.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={exportProductsExcel}
-                      className="w-full py-2.5 px-4 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                    >
-                      <Download size={15} />
-                      <span>Unduh File Excel</span>
-                    </button>
-                  </motion.div>
-
-                  {/* Import Excel Card */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="h-full bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-4">
-                        <Upload size={20} />
-                      </div>
-                      <h2 className="text-sm font-bold text-slate-900">Impor Produk dari Excel</h2>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Perbarui atau tambahkan produk dari file Excel. Periksa pratinjau sebelum menyimpan perubahan.
-                      </p>
-                      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-                        Perubahan stok produk lama dicatat sebagai stock opname. Stok batch tetap; nilai stok Excel tidak boleh lebih kecil dari total stok batch.
-                      </p>
-                    </div>
-                    <form onSubmit={previewProductsExcel} className="space-y-4">
-                      <label
-                        htmlFor="excel-import-file"
-                        onDragEnter={(event) => {
-                          event.preventDefault();
-                          setExcelDropActive(true);
-                        }}
-                        onDragOver={(event) => {
-                          event.preventDefault();
-                          setExcelDropActive(true);
-                        }}
-                        onDragLeave={(event) => {
-                          if (!event.currentTarget.contains(event.relatedTarget)) setExcelDropActive(false);
-                        }}
-                        onDrop={dropExcelFile}
-                        className={`flex min-h-[76px] items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors focus-within:ring-2 cursor-pointer ${
-                          excelDropActive
-                            ? "border-[#5936A8] bg-purple-50 ring-2 ring-purple-100"
-                            : "border-slate-300 bg-slate-50 hover:border-purple-300 hover:bg-purple-50/50 focus-within:border-[#5936A8] focus-within:ring-purple-100"
-                        }`}
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-[#5936A8]">
-                          <FileSpreadsheet size={19} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className={`block truncate text-xs font-semibold ${excelFile ? "text-slate-800" : "text-slate-600"}`}>
-                            {excelFile?.name || "Pilih file Excel (.xlsx)"}
-                          </span>
-                          <span className="mt-1 block text-[11px] text-slate-500">
-                            {excelFile
-                              ? `${(excelFile.size / (1024 * 1024)).toFixed(2)} MB · Maksimal 5 MB`
-                              : "Lepas file di sini atau pilih · .xlsx · Maksimal 5 MB"}
-                          </span>
-                        </span>
-                        <span className="shrink-0 rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-[#5936A8] shadow-sm">
-                          {excelFile ? "Ganti file" : "Pilih file"}
-                        </span>
-                        <input
-                          id="excel-import-file"
-                          type="file"
-                          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                          onChange={(e) => {
-                            selectExcelFiles(e.target.files);
-                            e.currentTarget.value = "";
-                          }}
-                          className="sr-only"
-                        />
-                      </label>
-                      {excelFile?.size > 5 * 1024 * 1024 && (
-                        <p className="text-xs font-medium text-rose-600" role="alert">
-                          File melebihi batas maksimal 5 MB. Pilih file yang lebih kecil.
-                        </p>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={busy || !excelFile || excelFile.size > 5 * 1024 * 1024}
-                        className="w-full py-2.5 px-4 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none flex items-center justify-center gap-2"
-                      >
-                        <Eye size={15} />
-                        <span>{busy ? "Memproses pratinjau..." : excelFile ? "Pratinjau Impor" : "Pilih file untuk melihat pratinjau"}</span>
-                      </button>
-                    </form>
-
-                    {excelPreview && (
-                      <div className="pt-4 border-t border-slate-100 space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-slate-800">{excelPreview.rowCount || 0} baris terbaca</span>
-                          <span className="px-2 py-0.5 rounded-full bg-purple-50 text-[#5936A8] font-bold">
-                            {excelPreview.counts?.errors || 0} Perlu Perbaikan
-                          </span>
-                        </div>
-                        {excelPreview.audit?.status === "BERHASIL" && (
-                          <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-                            <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
-                            <div>
-                              <p className="text-xs font-bold">Impor berhasil disimpan.</p>
-                              <p className="mt-1 text-[11px]">
-                                {excelPreview.counts.create} produk ditambahkan, {excelPreview.counts.update} diperbarui, dan {excelPreview.stockAdjustments} perubahan stok tercatat sebagai stock opname.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        <ExcelImportTable rows={excelPreview.rows || []} />
-                        {excelPreview.audit?.status === "BERHASIL" ? (
-                          <div className="rounded-xl bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-slate-600">
-                            Data impor sudah tersimpan. Pilih file lain untuk memulai impor baru.
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)}
-                            onClick={commitProductsExcel}
-                            className="w-full py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-40"
-                          >
-                            Simpan Perubahan ke Database
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                </div>
+                <ExcelScreen
+                  busy={busy}
+                  exportProductsExcel={exportProductsExcel}
+                  previewProductsExcel={previewProductsExcel}
+                  excelDropActive={excelDropActive}
+                  setExcelDropActive={setExcelDropActive}
+                  dropExcelFile={dropExcelFile}
+                  excelFile={excelFile}
+                  selectExcelFiles={selectExcelFiles}
+                  excelPreview={excelPreview}
+                  commitProductsExcel={commitProductsExcel}
+                />
               )}
 
               {screen === "prices" && user.role === "PEMILIK" && (
-                <motion.div
-                  variants={itemVariants}
-                  className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-900">Riwayat Perubahan Harga</h2>
-                      <p className="text-xs text-slate-500">Log audit historis perubahan harga beli, HPP, dan harga jual obat.</p>
-                    </div>
-                    <div className="w-full sm:w-60">
-                      <TableSearch value={query} onChange={setQuery} placeholder="Cari obat..." />
-                    </div>
-                  </div>
-                  <PriceHistoryTable history={filtered} money={money} date={date} />
-                </motion.div>
+                <PricesScreen
+                  query={query}
+                  setQuery={setQuery}
+                  filtered={filtered}
+                  money={money}
+                  date={date}
+                />
               )}
 
               {screen === "stock" && user.role === "PEMILIK" && (
-                <div className="space-y-6">
-                  {/* Stock Opname Form */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="border-b border-slate-100 pb-3">
-                      <h2 className="text-sm font-bold text-slate-900">Catat Stock Opname per Batch Fisik</h2>
-                      <p className="text-xs text-slate-500">
-                        Sesuaikan jumlah fisik obat di apotek dengan stok di sistem.
-                      </p>
-                    </div>
-                    <form onSubmit={saveStocktake} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Obat</label>
-                          <select
-                            name="produkId"
-                            required
-                            value={stockProductId}
-                            onChange={(e) => {
-                              const productId = e.target.value;
-                              const product = stockProducts.find((item) => String(item.id) === productId);
-                              setStockProductId(productId);
-                              setStockBatchItems(
-                                (product?.batch || [])
-                                  .filter((batch) => batch.jumlah > 0)
-                                  .map((batch) => ({
-                                    batchId: batch.id,
-                                    nomorBatch: batch.nomorBatch,
-                                    tanggalKedaluwarsa: new Date(batch.tanggalKedaluwarsa).toISOString().slice(0, 10),
-                                    jumlahFisik: String(batch.jumlah),
-                                  }))
-                              );
-                            }}
-                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                          >
-                            <option value="" disabled>Pilih obat dari katalog</option>
-                            {stockProducts.map((p) => (
-                              <option value={p.id} key={p.id}>
-                                {p.namaProduk} (Stok sistem: {p.stok})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <InputField name="alasan" label="Alasan Penyesuaian" placeholder="Contoh: Audit Rutin Bulanan" required />
-                      </div>
-
-                      {stockProductId && (
-                        <div className="pt-3 border-t border-slate-100 space-y-3">
-                          <p className="text-xs font-bold text-slate-800">Daftar Batch Terdaftar</p>
-                          {stockBatchItems.map((item, index) => (
-                            <div key={item.batchId || `new-${index}`} className="flex items-center gap-3">
-                              {item.batchId ? (
-                                <input
-                                  value={`${item.nomorBatch} · Exp: ${item.tanggalKedaluwarsa}`}
-                                  readOnly
-                                  className="flex-1 px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-700"
-                                />
-                              ) : (
-                                <>
-                                  <input
-                                    placeholder="Nomor batch"
-                                    required
-                                    value={item.nomorBatch}
-                                    onChange={(e) =>
-                                      setStockBatchItems((items) =>
-                                        items.map((it, i) => (i === index ? { ...it, nomorBatch: e.target.value } : it))
-                                      )
-                                    }
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                                  />
-                                  <input
-                                    type="date"
-                                    required
-                                    value={item.tanggalKedaluwarsa}
-                                    onChange={(e) =>
-                                      setStockBatchItems((items) =>
-                                        items.map((it, i) => (i === index ? { ...it, tanggalKedaluwarsa: e.target.value } : it))
-                                      )
-                                    }
-                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                                  />
-                                </>
-                              )}
-                              <input
-                                type="number"
-                                min="0"
-                                required
-                                value={item.jumlahFisik}
-                                onChange={(e) =>
-                                  setStockBatchItems((items) =>
-                                    items.map((it, i) => (i === index ? { ...it, jumlahFisik: e.target.value } : it))
-                                  )
-                                }
-                                placeholder="Jumlah fisik"
-                                className="w-28 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                              />
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setStockBatchItems((items) => [
-                                ...items,
-                                { nomorBatch: "", tanggalKedaluwarsa: "", jumlahFisik: "0" },
-                              ])
-                            }
-                            className="text-xs text-[#5936A8] font-bold hover:underline flex items-center gap-1"
-                          >
-                            <Plus size={14} />
-                            <span>Tambah Batch Baru</span>
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="flex justify-end pt-2">
-                        <button
-                          type="submit"
-                          disabled={busy || !stockProductId || !stockBatchItems.length}
-                          className="px-5 py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
-                        >
-                          Simpan Hasil Opname
-                        </button>
-                      </div>
-                    </form>
-                  </motion.div>
-
-                  {/* Stock Opname Table */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Riwayat Stock Opname</h2>
-                        <p className="text-xs text-slate-500">{filtered.length} log penyesuaian tercatat.</p>
-                      </div>
-                      <div className="w-full sm:w-60">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari obat..." />
-                      </div>
-                    </div>
-                    <StockTable records={filtered} date={date} />
-                  </motion.div>
-                </div>
+                <StockScreen
+                  filtered={filtered}
+                  query={query}
+                  setQuery={setQuery}
+                  date={date}
+                  saveStocktake={saveStocktake}
+                  stockProductId={stockProductId}
+                  setStockProductId={setStockProductId}
+                  stockProducts={stockProducts}
+                  setStockBatchItems={setStockBatchItems}
+                  stockBatchItems={stockBatchItems}
+                  busy={busy}
+                />
               )}
 
               {screen === "expiry" && (
-                <div className="space-y-6">
-                  <InventoryTabs activeTab="expiry" onSelect={selectInventoryTab} />
-
-                  {/* Receive Batch Form */}
-                  {user.role === "PEMILIK" && !summaryDetail && (
-                    <motion.div
-                      variants={itemVariants}
-                      className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                    >
-                      <div className="border-b border-slate-100 pb-3">
-                        <h2 className="text-sm font-bold text-slate-900">Terima Barang Masuk / Batch Baru</h2>
-                        <p className="text-xs text-slate-500">
-                          Catat nomor batch dan tanggal kedaluwarsa fisik obat yang diterima dari distributor.
-                        </p>
-                      </div>
-                      <form onSubmit={receiveBatch} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Obat</label>
-                            <select
-                              name="produkId"
-                              required
-                              defaultValue=""
-                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
-                            >
-                              <option value="" disabled>Pilih obat dari katalog</option>
-                              {stockProducts.map((p) => (
-                                <option value={p.id} key={p.id}>
-                                  {p.namaProduk}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <InputField name="nomorBatch" label="Nomor Batch" required />
-                          <InputField name="tanggalKedaluwarsa" label="Tanggal Kedaluwarsa" type="date" required />
-                          <InputField name="jumlah" label="Jumlah Unit Diterima" type="number" min="1" required />
-                          <InputField name="hargaBeli" label="Harga Beli Terbaru (Opsional)" type="number" min="0" step="0.01" />
-                          <InputField name="hpp" label="HPP Terbaru (Opsional)" type="number" min="0" step="0.01" />
-                        </div>
-                        <div className="flex justify-end pt-2">
-                          <button
-                            type="submit"
-                            disabled={busy}
-                            className="px-5 py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center gap-2"
-                          >
-                            <Plus size={15} />
-                            <span>Simpan Barang Masuk</span>
-                          </button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-
-                  {/* Expiry Table */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Monitoring Batch & Batas Retur</h2>
-                        <p className="text-xs text-slate-500">{filtered.length} batch dalam pemantauan sistem.</p>
-                      </div>
-                      <div className="w-full sm:w-60">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari nama atau batch..." />
-                      </div>
-                    </div>
-                    <ExpiryTable batches={filtered} date={date} />
-                  </motion.div>
-                </div>
+                <ExpiryScreen
+                  user={user}
+                  summaryDetail={summaryDetail}
+                  selectInventoryTab={selectInventoryTab}
+                  stockProducts={stockProducts}
+                  receiveBatch={receiveBatch}
+                  busy={busy}
+                  filtered={filtered}
+                  query={query}
+                  setQuery={setQuery}
+                  date={date}
+                />
               )}
 
               {screen === "backup" && user.role === "PEMILIK" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Backup Card */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-4">
-                        <Database size={20} />
-                      </div>
-                      <h2 className="text-sm font-bold text-slate-900">Backup Database Sistem</h2>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Unduh salinan cadangan lengkap database mencakup produk, batch, transaksi, riwayat harga, dan akun pengguna dalam format JSON.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={downloadBackup}
-                      className="w-full py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      <Download size={15} />
-                      <span>Unduh File Cadangan Database</span>
-                    </button>
-                  </motion.div>
-
-                  {/* Restore Card */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div>
-                      <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
-                        <AlertTriangle size={20} />
-                      </div>
-                      <h2 className="text-sm font-bold text-slate-900">Restore Database</h2>
-                      <p className="text-xs text-rose-600 font-semibold mt-1 leading-relaxed">
-                        Peringatan: Pemulihan akan menimpa seluruh data sistem saat ini. Pastikan file JSON yang digunakan adalah yang terbaru.
-                      </p>
-                    </div>
-                    <form onSubmit={restoreBackup} className="space-y-4">
-                      <input
-                        type="file"
-                        accept=".json,application/json"
-                        onChange={(e) => setBackupFile(e.target.files?.[0] || null)}
-                        required
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
-                      />
-                      <InputField
-                        name="restoreConfirmation"
-                        label={'Ketik "RESTORE" untuk konfirmasi:'}
-                        value={restoreConfirmation}
-                        onChange={(e) => setRestoreConfirmation(e.target.value)}
-                        placeholder="Ketik RESTORE"
-                        required
-                      />
-                      <button
-                        type="submit"
-                        disabled={busy || restoreConfirmation !== "RESTORE" || !backupFile}
-                        className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-40"
-                      >
-                        Timpa & Pulihkan Database
-                      </button>
-                    </form>
-                  </motion.div>
-                </div>
+                <BackupScreen
+                  busy={busy}
+                  downloadBackup={downloadBackup}
+                  restoreBackup={restoreBackup}
+                  setBackupFile={setBackupFile}
+                  restoreConfirmation={restoreConfirmation}
+                  setRestoreConfirmation={setRestoreConfirmation}
+                  backupFile={backupFile}
+                />
               )}
 
               {screen === "users" && user.role === "PEMILIK" && (
-                <div className="space-y-6">
-                  {/* Create Cashier Form */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="border-b border-slate-100 pb-3">
-                      <h2 className="text-sm font-bold text-slate-900">Tambah Akun Kasir Baru</h2>
-                      <p className="text-xs text-slate-500">
-                        Buat akun login kasir untuk melayani transaksi di kasir Apotek Risa.
-                      </p>
-                    </div>
-                    <form onSubmit={createUser} className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <InputField name="nama" label="Nama Lengkap Kasir" required />
-                        <InputField
-                          name="username"
-                          label="Username"
-                          minLength={3}
-                          maxLength={50}
-                          pattern="[a-zA-Z0-9._-]+"
-                          required
-                        />
-                        <PasswordField
-                          name="password"
-                          label={`Kata Sandi (min. ${MIN_PASSWORD_LENGTH} karakter)`}
-                          minLength={MIN_PASSWORD_LENGTH}
-                          required
-                          show={showCreatePassword}
-                          onToggle={() => setShowCreatePassword((v) => !v)}
-                        />
-                        <input type="hidden" name="role" value="KASIR" />
-                      </div>
-                      <div className="flex justify-end pt-2">
-                        <button
-                          type="submit"
-                          disabled={busy}
-                          className="px-5 py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center gap-2"
-                        >
-                          <Plus size={15} />
-                          <span>Buat Akun Kasir</span>
-                        </button>
-                      </div>
-                    </form>
-                  </motion.div>
-
-                  {/* User Editor Modal */}
-                  {userEditor && (
-                    <motion.div
-                      variants={itemVariants}
-                      className="bg-purple-50/70 border border-purple-200 rounded-2xl p-6 shadow-xs space-y-4"
-                    >
-                      <div className="border-b border-purple-100 pb-3">
-                        <h2 className="text-sm font-bold text-purple-900">
-                          {userEditor.mode === "edit"
-                            ? "Edit Profil Kasir"
-                            : userEditor.mode === "owner-name"
-                            ? "Ubah Nama Pemilik"
-                            : "Ubah Kata Sandi"}
-                        </h2>
-                      </div>
-                      <form onSubmit={saveCashier} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {userEditor.mode === "edit" ? (
-                            <>
-                              <InputField name="nama" label="Nama Lengkap" defaultValue={userEditor.nama} required />
-                              <InputField
-                                name="username"
-                                label="Username"
-                                defaultValue={userEditor.username}
-                                minLength={3}
-                                maxLength={50}
-                                pattern="[a-zA-Z0-9._-]+"
-                                required
-                              />
-                            </>
-                          ) : userEditor.mode === "owner-name" ? (
-                            <InputField name="nama" label="Nama Pemilik" defaultValue={userEditor.nama} required />
-                          ) : (
-                            <PasswordField
-                              name="password"
-                              label={`Kata Sandi Baru (min. ${MIN_PASSWORD_LENGTH} karakter)`}
-                              minLength={MIN_PASSWORD_LENGTH}
-                              required
-                              show={showEditorPassword}
-                              onToggle={() => setShowEditorPassword((v) => !v)}
-                            />
-                          )}
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setUserEditor(null)}
-                            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
-                          >
-                            Batal
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={busy}
-                            className="px-5 py-2 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50"
-                          >
-                            Simpan Perubahan
-                          </button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  )}
-
-                  {/* Users Table */}
-                  <motion.div
-                    variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Daftar Pengguna Sistem</h2>
-                        <p className="text-xs text-slate-500">{filtered.length} pengguna terdaftar.</p>
-                      </div>
-                      <div className="w-full sm:w-60">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari nama atau username..." />
-                      </div>
-                    </div>
-                    <UsersTable
-                      users={filtered}
-                      ownerId={user.id}
-                      onEdit={openCashierEditor}
-                      onToggle={toggleCashier}
-                      onDelete={deleteCashier}
-                    />
-                  </motion.div>
-                </div>
+                <UsersScreen
+                  user={user}
+                  createUser={createUser}
+                  busy={busy}
+                  showCreatePassword={showCreatePassword}
+                  setShowCreatePassword={setShowCreatePassword}
+                  userEditor={userEditor}
+                  saveCashier={saveCashier}
+                  showEditorPassword={showEditorPassword}
+                  setShowEditorPassword={setShowEditorPassword}
+                  setUserEditor={setUserEditor}
+                  filtered={filtered}
+                  query={query}
+                  setQuery={setQuery}
+                  openCashierEditor={openCashierEditor}
+                  toggleCashier={toggleCashier}
+                  deleteCashier={deleteCashier}
+                />
               )}
             </motion.div>
           </AnimatePresence>
@@ -3022,1104 +1640,6 @@ export default function Home() {
           <span>{notice}</span>
         </div>
       )}
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------------
-// REAL DASHBOARD VIEW (NO FAKE CHARTS / NO AI SLOP)
-// -------------------------------------------------------------------------
-function DashboardView({ dashboard, money: formatMoney, date: formatDate, onMetricClick, onGoToSales, onReceipt }) {
-  if (!dashboard) {
-    return (
-      <div className="py-20 flex flex-col items-center justify-center text-slate-400">
-        <div className="w-8 h-8 border-2 border-[#5936A8] border-t-transparent rounded-full animate-spin mb-3" />
-        <span className="text-xs">Memuat data ringkasan dashboard...</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* 4 Real Metric Cards with Framer Motion hover & enter animations */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          variants={itemVariants}
-          {...cardHoverProps}
-          onClick={() => onMetricClick("todayRevenue")}
-          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs cursor-pointer group hover:border-[#8B6AD9] transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Hari Ini
-              </span>
-              <span className="text-slate-300 group-hover:text-[#5936A8] transition-colors">•••</span>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-3">
-              <TrendingDown className="rotate-180" size={18} />
-            </div>
-            <p className="text-xs text-slate-500 font-medium">Omzet Penjualan</p>
-            <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-              {formatMoney(dashboard.todayRevenue)}
-            </h3>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>{dashboard.todayTransactions} Transaksi berhasil</span>
-            <span className="text-[#5936A8] font-bold group-hover:underline">Detail →</span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={itemVariants}
-          {...cardHoverProps}
-          onClick={() => onMetricClick("activeProducts")}
-          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs cursor-pointer group hover:border-[#8B6AD9] transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Katalog
-              </span>
-              <span className="text-slate-300 group-hover:text-[#5936A8] transition-colors">•••</span>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-teal-50 text-[#0F766E] flex items-center justify-center mb-3">
-              <Package size={18} />
-            </div>
-            <p className="text-xs text-slate-500 font-medium">Obat Aktif Terdaftar</p>
-            <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-              {dashboard.productCount} <span className="text-sm font-normal text-slate-400">Obat</span>
-            </h3>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Siap dijual di kasir</span>
-            <span className="text-[#5936A8] font-bold group-hover:underline">Buka katalog →</span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={itemVariants}
-          {...cardHoverProps}
-          onClick={() => onMetricClick("lowStock")}
-          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs cursor-pointer group hover:border-amber-300 transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">
-                Perlu Restock
-              </span>
-              <span className="text-slate-300 group-hover:text-amber-600 transition-colors">•••</span>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
-              <AlertTriangle size={18} />
-            </div>
-            <p className="text-xs text-slate-500 font-medium">Stok Menipis</p>
-            <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-              {dashboard.lowStockCount} <span className="text-sm font-normal text-slate-400">Item</span>
-            </h3>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Di bawah stok minimum</span>
-            <span className="text-amber-600 font-bold group-hover:underline">Periksa stok →</span>
-          </div>
-        </motion.div>
-
-        <motion.div
-          variants={itemVariants}
-          {...cardHoverProps}
-          onClick={() => onMetricClick("expiring")}
-          className="bg-white rounded-2xl p-5 border border-slate-200 shadow-2xs cursor-pointer group hover:border-[#8B6AD9] transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-[11px] font-semibold text-purple-700 uppercase tracking-wider">
-                Monitoring
-              </span>
-              <span className="text-slate-300 group-hover:text-[#5936A8] transition-colors">•••</span>
-            </div>
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-3">
-              <Clock size={18} />
-            </div>
-            <p className="text-xs text-slate-500 font-medium">Kedaluwarsa ≤ 6 Bulan</p>
-            <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
-              {dashboard.expiringCount} <span className="text-sm font-normal text-slate-400">Batch</span>
-            </h3>
-          </div>
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-            <span>≤ 3 bln retur: {dashboard.returnWindowCount} batch</span>
-            <span className="text-[#5936A8] font-bold group-hover:underline">Kelola batch →</span>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Real Operations Grid: Transaksi Terkini & Stok Perlu Perhatian */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Recent Real Transactions */}
-        <motion.div
-          variants={itemVariants}
-          className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Transaksi Terkini</h3>
-              <p className="text-xs text-slate-500">Aktivitas penjualan kasir yang tercatat di database.</p>
-            </div>
-            <button
-              onClick={onGoToSales}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-[#5936A8] text-xs font-bold rounded-xl transition-colors"
-            >
-              <span>+ Kasir Baru</span>
-            </button>
-          </div>
-
-          <div className="divide-y divide-slate-100">
-            {dashboard.recentSales?.map((sale) => (
-              <div
-                key={sale.id}
-                className="py-3 flex items-center justify-between gap-4 hover:bg-slate-50/70 px-2 rounded-xl transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-purple-50 text-[#5936A8] flex items-center justify-center shrink-0">
-                    <ArrowDownLeft size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold text-slate-900 block truncate">
-                      {sale.kodeTransaksi}
-                    </span>
-                    <span className="text-[11px] text-slate-400 block">
-                      {formatDate(sale.tanggal)} · Kasir: {sale.user?.nama || "Umum"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 shrink-0">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    Selesai
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 text-right">
-                    + {formatMoney(sale.total)}
-                  </span>
-                  {onReceipt && (
-                    <button
-                      onClick={() => onReceipt(sale)}
-                      className="p-1.5 text-slate-400 hover:text-[#5936A8] hover:bg-purple-50 rounded-lg transition-colors"
-                      title="Cetak Struk"
-                    >
-                      <ReceiptText size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {(!dashboard.recentSales || !dashboard.recentSales.length) && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                Belum ada transaksi tersimpan.
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Right Column: Real Low Stock Urgent List */}
-        <motion.div
-          variants={itemVariants}
-          className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
-        >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Stok Perlu Perhatian</h3>
-              <p className="text-xs text-slate-500">
-                {dashboard.lowStockProducts?.length || 0} obat di bawah batas aman
-              </p>
-            </div>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <AlertCircle size={15} />
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {dashboard.lowStockProducts?.slice(0, 6).map((product) => (
-              <div
-                key={product.id}
-                className="p-3 rounded-xl border border-amber-100 bg-amber-50/40 flex items-center justify-between gap-3"
-              >
-                <div className="min-w-0">
-                  <span className="text-xs font-bold text-slate-900 block truncate">
-                    {product.namaProduk}
-                  </span>
-                  <span className="text-[11px] text-slate-500 block">
-                    Sisa: <b className="text-rose-600">{product.stok}</b> {product.satuan.kode} (Min: {product.stokMinimum})
-                  </span>
-                </div>
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                  Restock
-                </span>
-              </div>
-            ))}
-            {(!dashboard.lowStockProducts || !dashboard.lowStockProducts.length) && (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                Semua persediaan obat berada di atas batas minimum.
-              </div>
-            )}
-          </div>
-
-          <div className="pt-2">
-            <button
-              onClick={() => onMetricClick("lowStock")}
-              className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>Lihat Seluruh Stok Menipis</span>
-              <ArrowRight size={13} />
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Inventory Health & Quick Navigation Card */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center shrink-0">
-              <ShieldCheck size={22} />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-slate-900">Integritas Operasional Apotek Risa</h4>
-              <p className="text-xs text-slate-500">
-                Data inventaris, riwayat harga, dan laporan keuangan tersimpan aman secara terpusat di server.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={onGoToSales}
-              className="px-4 py-2 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-colors"
-            >
-              Buka Kasir Penjualan
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------------
-// REUSABLE UI COMPONENTS
-// -------------------------------------------------------------------------
-function MetricCard({ title, value, note, icon: IconComponent, warning, selected, onClick }) {
-  return (
-    <motion.button
-      type="button"
-      variants={itemVariants}
-      {...cardHoverProps}
-      onClick={onClick}
-      className={`p-4 rounded-2xl border text-left bg-white transition-all flex flex-col justify-between ${
-        selected
-          ? "border-[#5936A8] ring-2 ring-purple-500/20 shadow-xs"
-          : "border-slate-200 hover:border-[#8B6AD9] shadow-2xs"
-      }`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold text-slate-400">{title}</span>
-        <div
-          className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-            warning ? "bg-amber-50 text-amber-600" : "bg-purple-50 text-[#5936A8]"
-          }`}
-        >
-          <IconComponent size={15} />
-        </div>
-      </div>
-      <div>
-        <span className="text-xl font-bold text-slate-900 block tracking-tight">{value}</span>
-        <span className="text-[11px] text-slate-400 block mt-0.5">{note}</span>
-      </div>
-    </motion.button>
-  );
-}
-
-function InputField({ label, name, type = "text", ...props }) {
-  return (
-    <div>
-      <label className="block text-xs font-semibold text-slate-700 mb-1.5">{label}</label>
-      <input
-        name={name}
-        type={type}
-        {...props}
-        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#5936A8] focus:bg-white focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400"
-      />
-    </div>
-  );
-}
-
-function PasswordField({ label, name, minLength, required, show, onToggle }) {
-  const id = useId();
-  return (
-    <div>
-      <label htmlFor={id} className="block text-xs font-semibold text-slate-700 mb-1.5">
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={id}
-          name={name}
-          type={show ? "text" : "password"}
-          minLength={minLength}
-          maxLength="200"
-          autoComplete="new-password"
-          required={required}
-          className="w-full px-3.5 py-2.5 pr-10 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-[#5936A8] focus:bg-white focus:ring-2 focus:ring-purple-500/10 transition-all placeholder:text-slate-400"
-        />
-        <button
-          type="button"
-          onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          aria-label={show ? "Sembunyikan password" : "Lihat password"}
-        >
-          {show ? <EyeOff size={15} /> : <Eye size={15} />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function TableSearch({ value, onChange, placeholder = "Cari data..." }) {
-  return (
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#5936A8] focus:bg-white transition-all"
-      />
-    </div>
-  );
-}
-
-function InventoryTabs({ activeTab, onSelect }) {
-  return (
-    <div className="flex items-center gap-2 border-b border-slate-200 pb-px">
-      <button
-        onClick={() => onSelect("products")}
-        className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
-          activeTab === "products"
-            ? "border-[#5936A8] text-[#5936A8]"
-            : "border-transparent text-slate-500 hover:text-slate-800"
-        }`}
-      >
-        Katalog Obat
-      </button>
-      <button
-        onClick={() => onSelect("expiry")}
-        className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all ${
-          activeTab === "expiry"
-            ? "border-[#5936A8] text-[#5936A8]"
-            : "border-transparent text-slate-500 hover:text-slate-800"
-        }`}
-      >
-        Monitoring Kedaluwarsa
-      </button>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------------
-// TABLES
-// -------------------------------------------------------------------------
-function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange, onEdit, owner }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Obat</th>
-            <th className="py-3 px-3">Kategori</th>
-            <th className="py-3 px-3">HPP</th>
-            <th className="py-3 px-3">Harga Jual</th>
-            <th className="py-3 px-3">Stok</th>
-            <th className="py-3 px-3">Status</th>
-            {owner && <th className="py-3 px-3 text-right">Aksi</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {products.map((p) => {
-            const isLow = p.stok <= p.stokMinimum;
-            return (
-              <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
-                <td className="py-3 px-3">
-                  <span className="font-bold text-slate-900 block">{p.namaProduk}</span>
-                  <span className="text-[11px] text-slate-400">
-                    {p.kodeBarang || "Tanpa kode"} · {p.satuan.kode}
-                  </span>
-                </td>
-                <td className="py-3 px-3 text-slate-600">{p.kategori.nama}</td>
-                <td className="py-3 px-3 text-slate-600">{formatMoney(p.hpp)}</td>
-                <td className="py-3 px-3 font-semibold text-slate-900">
-                  <div className="flex items-center gap-1.5">
-                    <span>{formatMoney(p.hargaJual)}</span>
-                    {owner && (
-                      <button
-                        type="button"
-                        onClick={() => onPriceChange(p)}
-                        className="text-[#5936A8] hover:text-[#472985] p-1 rounded"
-                        title="Ubah harga jual"
-                      >
-                        <Edit2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="py-3 px-3 font-bold text-slate-800">{p.stok}</td>
-                <td className="py-3 px-3">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                      isLow ? "bg-amber-50 text-amber-700 border border-amber-200" : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                    }`}
-                  >
-                    {isLow ? "Menipis" : "Tersedia"}
-                  </span>
-                </td>
-                {owner && (
-                  <td className="py-3 px-3 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(p)}
-                        className="p-1.5 text-slate-500 hover:text-[#5936A8] hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Edit data obat"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onArchive(p.id)}
-                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                        title="Arsipkan obat"
-                      >
-                        <Archive size={14} />
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-          {!products.length && (
-            <tr>
-              <td colSpan={owner ? 7 : 6} className="py-8 text-center text-slate-400">
-                Tidak ada data obat untuk ditampilkan.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SalesTable({ sales, money: formatMoney, date: formatDate, onReceipt }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">No. Transaksi</th>
-            <th className="py-3 px-3">Tanggal</th>
-            <th className="py-3 px-3">Jenis</th>
-            <th className="py-3 px-3">Kasir</th>
-            <th className="py-3 px-3">Jumlah Item</th>
-            <th className="py-3 px-3">Total Pembayaran</th>
-            {onReceipt && <th className="py-3 px-3 text-right">Struk</th>}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {sales.map((sale) => (
-            <tr key={sale.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 font-bold text-slate-900">{sale.kodeTransaksi}</td>
-              <td className="py-3 px-3 text-slate-500">{formatDate(sale.tanggal)}</td>
-              <td className="py-3 px-3">
-                <span className="inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                  {sale.jenis === "ONLINE" ? "Online" : "Offline"}
-                </span>
-              </td>
-              <td className="py-3 px-3 font-medium text-slate-700">{sale.user?.nama || "—"}</td>
-              <td className="py-3 px-3 text-slate-600">
-                {sale.detail?.reduce((sum, d) => sum + d.jumlah, 0) ?? 0}
-              </td>
-              <td className="py-3 px-3 font-bold text-slate-900">{formatMoney(sale.total)}</td>
-              {onReceipt && (
-                <td className="py-3 px-3 text-right">
-                  <button
-                    onClick={() => onReceipt(sale)}
-                    className="p-1.5 text-slate-500 hover:text-[#5936A8] hover:bg-purple-50 rounded-lg transition-colors"
-                    title="Cetak struk kasir"
-                  >
-                    <Printer size={15} />
-                  </button>
-                </td>
-              )}
-            </tr>
-          ))}
-          {!sales.length && (
-            <tr>
-              <td colSpan={onReceipt ? 7 : 6} className="py-8 text-center text-slate-400">
-                Tidak ada transaksi yang sesuai dengan filter ini.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function StockTable({ records, date: formatDate }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Tanggal</th>
-            <th className="py-3 px-3">Obat / Rincian Batch</th>
-            <th className="py-3 px-3">Stok Sistem</th>
-            <th className="py-3 px-3">Stok Fisik</th>
-            <th className="py-3 px-3">Selisih</th>
-            <th className="py-3 px-3">Petugas</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {records.map((r) => (
-            <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 text-slate-500">{formatDate(r.tanggal)}</td>
-              <td className="py-3 px-3">
-                <span className="font-bold text-slate-900 block">{r.produk.namaProduk}</span>
-                <span className="text-[11px] text-slate-400 block">{r.alasan}</span>
-              </td>
-              <td className="py-3 px-3 font-medium text-slate-700">{r.stokSistem}</td>
-              <td className="py-3 px-3 font-bold text-slate-900">{r.stokFisik}</td>
-              <td className="py-3 px-3">
-                <span
-                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                    r.selisih < 0 ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"
-                  }`}
-                >
-                  {r.selisih > 0 ? `+${r.selisih}` : r.selisih}
-                </span>
-              </td>
-              <td className="py-3 px-3 text-slate-600">{r.user.nama}</td>
-            </tr>
-          ))}
-          {!records.length && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-slate-400">
-                Belum ada data penyesuaian stok.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ExpiryTable({ batches, date: formatDate }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Obat</th>
-            <th className="py-3 px-3">No. Batch</th>
-            <th className="py-3 px-3">Tanggal Kedaluwarsa</th>
-            <th className="py-3 px-3">Sisa Stok</th>
-            <th className="py-3 px-3">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {batches.map((b) => (
-            <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 font-bold text-slate-900">
-                {b.produk?.namaProduk || "Produk tidak tersedia"}
-              </td>
-              <td className="py-3 px-3 text-slate-600 font-mono">{b.nomorBatch}</td>
-              <td className="py-3 px-3 text-slate-700">{formatDate(b.tanggalKedaluwarsa)}</td>
-              <td className="py-3 px-3 font-bold text-slate-900">{b.jumlah}</td>
-              <td className="py-3 px-3">
-                <span
-                  className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                    b.status === "KEDALUWARSA"
-                      ? "bg-rose-50 text-rose-700 border border-rose-200"
-                      : b.status === "BATAS_RETUR"
-                      ? "bg-amber-50 text-amber-700 border border-amber-200"
-                      : "bg-purple-50 text-purple-700 border border-purple-200"
-                  }`}
-                >
-                  {b.status === "KEDALUWARSA"
-                    ? "Kedaluwarsa"
-                    : b.status === "BATAS_RETUR"
-                    ? "Batas Retur ≤ 3 bln"
-                    : "Preventif ≤ 6 bln"}
-                </span>
-              </td>
-            </tr>
-          ))}
-          {!batches.length && (
-            <tr>
-              <td colSpan={5} className="py-8 text-center text-slate-400">
-                Tidak ada batch yang mendekati kedaluwarsa.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function UsersTable({ users, ownerId, onEdit, onToggle, onDelete }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Nama</th>
-            <th className="py-3 px-3">Username</th>
-            <th className="py-3 px-3">Peran</th>
-            <th className="py-3 px-3">Status</th>
-            <th className="py-3 px-3">Dibuat</th>
-            <th className="py-3 px-3 text-right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {users.map((u) => (
-            <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 font-bold text-slate-900">{u.nama}</td>
-              <td className="py-3 px-3 text-slate-600">{u.username}</td>
-              <td className="py-3 px-3">
-                <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700">
-                  {u.role === "PEMILIK" ? "Pemilik" : "Kasir"}
-                </span>
-              </td>
-              <td className="py-3 px-3">
-                <span
-                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    u.aktif ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {u.aktif ? "Aktif" : "Nonaktif"}
-                </span>
-              </td>
-              <td className="py-3 px-3 text-slate-400">
-                {new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(new Date(u.dibuatPada))}
-              </td>
-              <td className="py-3 px-3 text-right">
-                {u.role === "KASIR" ? (
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      onClick={() => onEdit(u, "edit")}
-                      className="p-1.5 text-slate-500 hover:text-[#5936A8] rounded-lg hover:bg-purple-50"
-                      title="Edit kasir"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button
-                      onClick={() => onEdit(u, "password")}
-                      className="p-1.5 text-slate-500 hover:text-[#5936A8] rounded-lg hover:bg-purple-50"
-                      title="Ubah sandi"
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      onClick={() => onToggle(u)}
-                      className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg hover:bg-amber-50"
-                      title={u.aktif ? "Arsipkan" : "Aktifkan"}
-                    >
-                      <Archive size={14} />
-                    </button>
-                    <button
-                      onClick={() => onDelete(u)}
-                      className="p-1.5 text-slate-500 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                      title="Hapus"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ) : (
-                  u.id === ownerId && (
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        onClick={() => onEdit(u, "owner-name")}
-                        className="p-1.5 text-slate-500 hover:text-[#5936A8] rounded-lg hover:bg-purple-50"
-                        title="Ubah nama"
-                      >
-                        <Edit2 size={14} />
-                      </button>
-                      <button
-                        onClick={() => onEdit(u, "password")}
-                        className="p-1.5 text-slate-500 hover:text-[#5936A8] rounded-lg hover:bg-purple-50"
-                        title="Atur sandi"
-                      >
-                        <Eye size={14} />
-                      </button>
-                    </div>
-                  )
-                )}
-              </td>
-            </tr>
-          ))}
-          {!users.length && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-slate-400">
-                Belum ada pengguna terdaftar.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function PriceHistoryTable({ history, money: formatMoney, date: formatDate }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Tanggal</th>
-            <th className="py-3 px-3">Obat</th>
-            <th className="py-3 px-3">Jenis Harga</th>
-            <th className="py-3 px-3">Harga Lama</th>
-            <th className="py-3 px-3">Harga Baru</th>
-            <th className="py-3 px-3">Diubah Oleh</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {history.map((h) => (
-            <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 text-slate-500">{formatDate(h.tanggal)}</td>
-              <td className="py-3 px-3 font-bold text-slate-900">
-                {h.produk.namaProduk}
-                <span className="text-[11px] text-slate-400 block font-normal">
-                  {h.produk.kodeBarang || "Tanpa kode"}
-                </span>
-              </td>
-              <td className="py-3 px-3">
-                <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-[#5936A8]">
-                  {h.jenisHarga === "JUAL" ? "Harga Jual" : h.jenisHarga === "HPP" ? "HPP" : "Harga Beli"}
-                </span>
-              </td>
-              <td className="py-3 px-3 text-slate-500">{formatMoney(h.hargaLama)}</td>
-              <td className="py-3 px-3 font-bold text-slate-900">{formatMoney(h.hargaBaru)}</td>
-              <td className="py-3 px-3 text-slate-600">{h.user.nama}</td>
-            </tr>
-          ))}
-          {!history.length && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-slate-400">
-                Belum ada riwayat perubahan harga.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ExpensesTable({ expenses, money: formatMoney, date: formatDate, onDelete }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Tanggal</th>
-            <th className="py-3 px-3">Kategori</th>
-            <th className="py-3 px-3">Keterangan</th>
-            <th className="py-3 px-3">Jumlah</th>
-            <th className="py-3 px-3">Dicatat Oleh</th>
-            <th className="py-3 px-3 text-right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {expenses.map((e) => (
-            <tr key={e.id} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 text-slate-500">{formatDate(e.tanggal)}</td>
-              <td className="py-3 px-3 font-semibold text-slate-800">{e.kategori}</td>
-              <td className="py-3 px-3 text-slate-600">{e.deskripsi}</td>
-              <td className="py-3 px-3 font-bold text-rose-600">{formatMoney(e.jumlah)}</td>
-              <td className="py-3 px-3 text-slate-500">{e.user?.nama || "—"}</td>
-              <td className="py-3 px-3 text-right">
-                <button
-                  onClick={() => onDelete(e)}
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
-                  title="Hapus biaya"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </td>
-            </tr>
-          ))}
-          {!expenses.length && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-slate-400">
-                Belum ada biaya operasional tercatat.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function reportPeriodLabel(period) {
-  const value = new Date(`${period.length === 7 ? `${period}-01` : period}T00:00:00.000Z`);
-  return new Intl.DateTimeFormat("id-ID", {
-    ...(period.length === 7 ? { month: "long", year: "numeric" } : { dateStyle: "medium" }),
-    timeZone: "UTC",
-  }).format(value);
-}
-
-function ReportTable({ rows, money: formatMoney }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Periode</th>
-            <th className="py-3 px-3">Omzet</th>
-            <th className="py-3 px-3">Transaksi / Kunjungan</th>
-            <th className="py-3 px-3">Laba Kotor</th>
-            <th className="py-3 px-3">Biaya Operasional</th>
-            <th className="py-3 px-3">Laba Bersih</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {rows.map((row) => (
-            <tr key={row.periode} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 font-bold text-slate-900">{reportPeriodLabel(row.periode)}</td>
-              <td className="py-3 px-3 font-semibold text-slate-800">{formatMoney(row.omzet)}</td>
-              <td className="py-3 px-3 text-slate-600">
-                {row.jumlahTransaksi} / {row.jumlahKunjungan}
-              </td>
-              <td className="py-3 px-3 text-emerald-600 font-semibold">{formatMoney(row.labaKotor)}</td>
-              <td className="py-3 px-3 text-rose-600">{formatMoney(row.biayaOperasional)}</td>
-              <td className="py-3 px-3 font-extrabold text-[#5936A8]">{formatMoney(row.labaBersih)}</td>
-            </tr>
-          ))}
-          {!rows.length && (
-            <tr>
-              <td colSpan={6} className="py-8 text-center text-slate-400">
-                Belum ada rekapitulasi data.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ReportMetricTable({ rows, metric, money: formatMoney }) {
-  const countMetric = metric === "jumlahKunjungan";
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-3 px-3">Periode</th>
-            <th className="py-3 px-3">{reportMetricLabels[metric].toLocaleUpperCase("id-ID")}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {rows.map((row) => (
-            <tr key={row.periode} className="hover:bg-slate-50/70 transition-colors">
-              <td className="py-3 px-3 font-bold text-slate-900">{reportPeriodLabel(row.periode)}</td>
-              <td className="py-3 px-3 font-bold text-[#5936A8]">
-                {countMetric ? row[metric] : formatMoney(row[metric])}
-              </td>
-            </tr>
-          ))}
-          {!rows.length && (
-            <tr>
-              <td colSpan={2} className="py-8 text-center text-slate-400">
-                Tidak ada data rincian.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function ExcelImportTable({ rows }) {
-  const actionLabels = {
-    create: "Baru",
-    update: "Perbarui",
-    ambiguous: "Ambigu",
-    invalid: "Tidak valid",
-  };
-  return (
-    <div className="overflow-x-auto max-h-60">
-      <table className="w-full text-left text-xs whitespace-nowrap">
-        <thead>
-          <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-            <th className="py-2 px-2">Baris</th>
-            <th className="py-2 px-2">Kode</th>
-            <th className="py-2 px-2">Nama Produk</th>
-            <th className="py-2 px-2">Aksi</th>
-            <th className="py-2 px-2">Validasi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {rows.map((row) => (
-            <tr key={row.row}>
-              <td className="py-2 px-2 text-slate-400 font-mono">{row.row}</td>
-              <td className="py-2 px-2 font-mono text-slate-600">{row.product?.kodeBarang || "—"}</td>
-              <td className="py-2 px-2 font-medium text-slate-900">{row.product?.namaProduk || "—"}</td>
-              <td className="py-2 px-2 font-semibold text-[#5936A8]">{actionLabels[row.action] || row.action}</td>
-              <td className="py-2 px-2 text-[11px] text-slate-500">
-                {row.errors.length ? row.errors.join("; ") : "Siap disimpan"}
-              </td>
-            </tr>
-          ))}
-          {!rows.length && (
-            <tr>
-              <td colSpan={5} className="py-6 text-center text-slate-400">
-                Belum ada data pratinjau.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// -------------------------------------------------------------------------
-// PRINTABLE RECEIPT MODAL
-// -------------------------------------------------------------------------
-function ReceiptModal({ sale, onPrint, onClose }) {
-  const details = sale.detail || [];
-  const subtotal = details.reduce((sum, item) => sum + Number(item.subtotal), 0);
-  const otherFees =
-    Number(sale.biayaAdmin || 0) +
-    Number(sale.biayaPengemasan || 0) +
-    Number(sale.biayaLayanan || 0) +
-    Number(sale.biayaGratisOngkir || 0);
-  const transactionDate = new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Asia/Jakarta",
-  }).format(new Date(sale.tanggal));
-
-  return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between no-print border-b border-slate-100 pb-3">
-          <span className="text-xs font-bold text-slate-800">Pratinjau Struk Kasir</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onPrint}
-              className="px-3 py-1.5 bg-[#5936A8] hover:bg-[#472985] text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
-            >
-              <Printer size={14} />
-              <span>Cetak</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* 72mm Monospace Thermal Paper Format */}
-        <article className="font-mono text-[11px] text-slate-800 bg-[#FFFDF7] p-4 rounded-xl border border-dashed border-slate-300 leading-tight space-y-3">
-          <div className="text-center space-y-1">
-            <div className="flex justify-center mb-1">
-              <Image src="/apotek.jpg" alt="Logo" width={48} height={48} className="rounded-lg object-contain" />
-            </div>
-            <h2 className="font-bold text-xs uppercase tracking-wide">APOTEK RISA</h2>
-            <p className="text-[10px] uppercase">JL. TEROPONG PERUM GRIYA MASMUR 1 BLOK B KAVLING NO 7</p>
-            <p className="text-[10px]">Telp: 0882-7145-7114</p>
-            <p className="text-slate-400">==============================</p>
-          </div>
-
-          <div className="space-y-1 text-[10px]">
-            <div className="flex justify-between">
-              <span>No. Transaksi</span>
-              <span className="font-bold">{sale.kodeTransaksi}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Tanggal</span>
-              <span>{transactionDate}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Pelanggan</span>
-              <span>UMUM</span>
-            </div>
-          </div>
-
-          <div className="border-t border-b border-dashed border-slate-300 py-2 space-y-1.5">
-            {details.map((item) => (
-              <div key={item.id} className="space-y-0.5">
-                <span className="block font-bold truncate uppercase">{item.produk?.namaProduk || "Produk"}</span>
-                <div className="flex justify-between text-[10px]">
-                  <span>
-                    {item.jumlah} {item.produk?.satuan?.kode || ""} x {receiptNumber.format(Number(item.hargaSatuan || 0))}
-                  </span>
-                  <span className="font-bold">{receiptNumber.format(Number(item.subtotal || 0))}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-1 text-[10px]">
-            <div className="flex justify-between">
-              <span>Subtotal</span>
-              <span>{receiptNumber.format(subtotal)}</span>
-            </div>
-            {Number(sale.potongan || 0) > 0 && (
-              <div className="flex justify-between">
-                <span>Potongan</span>
-                <span>-{receiptNumber.format(Number(sale.potongan || 0))}</span>
-              </div>
-            )}
-            {Number(sale.biayaPajak || 0) > 0 && (
-              <div className="flex justify-between">
-                <span>Pajak</span>
-                <span>{receiptNumber.format(Number(sale.biayaPajak || 0))}</span>
-              </div>
-            )}
-            {otherFees > 0 && (
-              <div className="flex justify-between">
-                <span>Biaya Lain</span>
-                <span>{receiptNumber.format(otherFees)}</span>
-              </div>
-            )}
-            <div className="border-t border-dashed border-slate-400 pt-1 flex justify-between font-bold text-xs">
-              <span>TOTAL</span>
-              <span>{receiptNumber.format(Number(sale.total || 0))}</span>
-            </div>
-          </div>
-
-          <div className="text-center pt-2 text-[10px]">
-            <p className="text-slate-400">==============================</p>
-            <p className="mt-1 font-medium">Terima kasih atas kunjungan Anda</p>
-          </div>
-        </article>
-      </div>
     </div>
   );
 }
