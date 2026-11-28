@@ -9,7 +9,11 @@ import {
 } from "../../../../lib/product-excel";
 
 const MAX_MULTIPART_BYTES = MAX_IMPORT_BYTES + 64 * 1024;
-const PRODUCT_INCLUDE = { kategori: true, satuan: true };
+const PRODUCT_INCLUDE = {
+  kategori: true,
+  satuan: true,
+  batch: { select: { jumlah: true } },
+};
 
 async function readBoundedMultipart(request) {
   const contentType = request.headers.get("content-type") ?? "";
@@ -102,18 +106,32 @@ function importSummary(rows) {
   };
 }
 
-async function upsertMasterData(tx, product) {
-  const kategori = await tx.kategoriObat.upsert({
-    where: { nama: product.kategori },
-    update: {},
-    create: { nama: product.kategori },
-  });
-  const satuan = await tx.satuan.upsert({
-    where: { kode: product.satuan },
-    update: {},
-    create: { kode: product.satuan },
-  });
-  return { kategoriId: kategori.id, satuanId: satuan.id };
+async function upsertMasterData(tx, product, cache) {
+  let kategoriId = cache.kategori.get(product.kategori);
+  if (!kategoriId) {
+    const kategori = await tx.kategoriObat.upsert({
+      where: { nama: product.kategori },
+      update: {},
+      create: { nama: product.kategori },
+      select: { id: true },
+    });
+    kategoriId = kategori.id;
+    cache.kategori.set(product.kategori, kategoriId);
+  }
+
+  let satuanId = cache.satuan.get(product.satuan);
+  if (!satuanId) {
+    const satuan = await tx.satuan.upsert({
+      where: { kode: product.satuan },
+      update: {},
+      create: { kode: product.satuan },
+      select: { id: true },
+    });
+    satuanId = satuan.id;
+    cache.satuan.set(product.satuan, satuanId);
+  }
+
+  return { kategoriId, satuanId };
 }
 
 export async function POST(request) {
@@ -131,8 +149,55 @@ export async function POST(request) {
       const summary = importSummary(rows);
       if (summary.counts.errors > 0) return { invalid: true, summary };
 
+      const updateIds = rows.filter((row) => row.action === "update").map((row) => row.productId);
+      const existingProducts = updateIds.length
+        ? await tx.produk.findMany({
+          where: { id: { in: updateIds } },
+          select: {
+            id: true,
+            stok: true,
+            hargaBeli: true,
+            hpp: true,
+            hargaJual: true,
+            batch: { select: { jumlah: true } },
+          },
+        })
+        : [];
+      const existingById = new Map(existingProducts.map((product) => [product.id, product]));
+      const masterDataCache = { kategori: new Map(), satuan: new Map() };
+      const stockOpnameRows = [];
+      const stockOpnameReason = `Impor Excel: ${file.name}`.slice(0, 255);
+
       for (const row of rows) {
-        const masterData = await upsertMasterData(tx, row.product);
+        if (row.action !== "update") continue;
+        const existing = existingById.get(row.productId);
+        if (!existing) throw new ApiError(`Produk pada baris ${row.row} tidak lagi tersedia.`, 409);
+
+        const batchStock = existing.batch.reduce((total, batch) => total + batch.jumlah, 0);
+        if (row.product.stok < batchStock) {
+          throw new ApiError(
+            `Stok pada baris ${row.row} lebih kecil dari total stok batch tercatat (${batchStock}); sesuaikan per batch melalui Stock Opname.`,
+            422,
+          );
+        }
+        if (row.product.stok !== existing.stok) {
+          stockOpnameRows.push({
+            produkId: row.productId,
+            userId: user.id,
+            stokSistem: existing.stok,
+            stokFisik: row.product.stok,
+            selisih: row.product.stok - existing.stok,
+            alasan: stockOpnameReason,
+          });
+        }
+      }
+
+      if (stockOpnameRows.length) {
+        await tx.stockOpname.createMany({ data: stockOpnameRows });
+      }
+
+      for (const row of rows) {
+        const masterData = await upsertMasterData(tx, row.product, masterDataCache);
         const data = {
           kodeBarang: row.product.kodeBarang || null,
           namaProduk: row.product.namaProduk,
@@ -152,38 +217,11 @@ export async function POST(request) {
           });
           row.productId = created.id;
         } else {
-          const existing = await tx.produk.findUnique({
+          const existing = existingById.get(row.productId);
+          await tx.produk.update({
             where: { id: row.productId },
-            select: { stok: true, hargaBeli: true, hpp: true, hargaJual: true },
+            data: { ...data, stok: row.product.stok },
           });
-          if (!existing) throw new ApiError(`Produk pada baris ${row.row} tidak lagi tersedia.`, 409);
-          const batchStock = await tx.batchProduk.aggregate({
-            where: { produkId: row.productId },
-            _sum: { jumlah: true },
-          });
-          try {
-            assertBatchStockFitsProductStock(row.product.stok, batchStock._sum.jumlah ?? 0);
-          } catch (error) {
-            if (error instanceof RangeError) throw new ApiError(`Baris ${row.row}: ${error.message}`, 409);
-            throw error;
-          }
-          const updated = await tx.produk.updateMany({
-            where: { id: row.productId, stok: existing.stok },
-            data,
-          });
-          if (updated.count !== 1) throw new ApiError(`Stok produk pada baris ${row.row} berubah. Muat ulang data dan ulangi impor.`, 409);
-          if (existing.stok !== row.product.stok) {
-            await tx.stockOpname.create({
-              data: {
-                produkId: row.productId,
-                userId: user.id,
-                stokSistem: existing.stok,
-                stokFisik: row.product.stok,
-                selisih: row.product.stok - existing.stok,
-                alasan: `Impor Excel: ${file.name}`.slice(0, 255),
-              },
-            });
-          }
           for (const [field, jenisHarga] of [["hargaBeli", "BELI"], ["hpp", "HPP"], ["hargaJual", "JUAL"]]) {
             if (Number(existing[field]) === row.product[field]) continue;
             await tx.riwayatHarga.create({
@@ -209,12 +247,13 @@ export async function POST(request) {
         },
         select: { id: true, jumlahBaris: true, status: true, tanggal: true },
       });
-      return { invalid: false, summary: importSummary(rows), audit };
-    }, {
-      isolationLevel: "Serializable",
-      maxWait: 10_000,
-      timeout: 120_000,
-    });
+      return {
+        invalid: false,
+        summary: importSummary(rows),
+        audit,
+        stockAdjustments: stockOpnameRows.length,
+      };
+    }, { isolationLevel: "Serializable", maxWait: 10_000, timeout: 120_000 });
 
     if (result.invalid) {
       return Response.json({
@@ -229,6 +268,7 @@ export async function POST(request) {
       filename: file.name,
       ...result.summary,
       audit: result.audit,
+      stockAdjustments: result.stockAdjustments,
     });
   } catch (error) {
     return apiError(error);

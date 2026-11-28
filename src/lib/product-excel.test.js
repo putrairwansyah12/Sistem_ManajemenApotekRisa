@@ -106,27 +106,31 @@ describe("product Excel import", () => {
       .toEqual(["update", "invalid"]);
   });
 
-  it("rejects imported stock below the total recorded batch stock", () => {
+  it("rejects imported stock below the total of existing product batches", () => {
     const planned = planProductImport([{
       row: 2,
-      product: {
-        kodeBarang: "A-7",
-        namaProduk: "Vitamin C",
-        kategori: "Vitamin",
-        satuan: "Botol",
-        stok: 4,
-      },
+      product: { kodeBarang: "A-7", namaProduk: "Vitamin C", kategori: "Vitamin", satuan: "Botol", stok: 4 },
       errors: [],
     }], [{
       ...existingProduct,
-      stok: 10,
-      batch: [{ jumlah: 5 }, { jumlah: 3 }],
+      batch: [{ jumlah: 2 }, { jumlah: 3 }],
     }]);
 
     expect(planned[0].action).toBe("invalid");
-    expect(planned[0].stokSebelum).toBe(10);
-    expect(planned[0].errors).toEqual([
-      "Stok Excel tidak boleh lebih kecil dari total stok batch (8).",
-    ]);
+    expect(planned[0].errors[0]).toMatch(/total stok batch tercatat \(5\)/);
+  });
+
+  it("allows imported stock equal to the total of existing product batches", () => {
+    const planned = planProductImport([{
+      row: 2,
+      product: { kodeBarang: "A-7", namaProduk: "Vitamin C", kategori: "Vitamin", satuan: "Botol", stok: 5 },
+      errors: [],
+    }], [{
+      ...existingProduct,
+      batch: [{ jumlah: 2 }, { jumlah: 3 }],
+    }]);
+
+    expect(planned[0]).toMatchObject({ action: "update", productId: 7 });
+    expect(planned[0].errors).toEqual([]);
   });
 });

@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { ApiError, apiError, jsonBody, requireUser } from "../../../lib/auth";
+import { getFinancePeriodRange } from "../../../lib/finance";
 import { getStockAvailability } from "../../../lib/inventory";
 import { prisma } from "../../../lib/prisma";
+
+const HISTORY_PAGE_SIZE = 25;
 
 const saleInclude = {
   user: { select: { nama: true } },
@@ -40,16 +43,82 @@ function roundMoney(value) {
   return Number(value.toFixed(2));
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     await requireUser();
-    const sales = await prisma.transaksiPenjualan.findMany({
-      where: { diarsipkan: false },
-      include: saleInclude,
-      orderBy: { tanggal: "desc" },
-      take: 100,
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get("period");
+    const search = searchParams.get("q")?.trim() || "";
+
+    if (search.length > 100) throw new ApiError("Kata pencarian terlalu panjang.");
+
+    if (!period) {
+      const sales = await prisma.transaksiPenjualan.findMany({
+        include: saleInclude,
+        orderBy: [{ tanggal: "desc" }, { id: "desc" }],
+        take: 100,
+      });
+      return Response.json({ sales });
+    }
+
+    if (!["day", "month"].includes(period)) throw new ApiError("Filter periode tidak valid.");
+    const selectedDate = searchParams.get("date");
+    const rangeDate =
+      period === "month" && /^\d{4}-\d{2}$/.test(selectedDate || "")
+        ? `${selectedDate}-01`
+        : selectedDate;
+    let range;
+    try {
+      range = getFinancePeriodRange(period, rangeDate);
+    } catch (error) {
+      if (error instanceof RangeError) throw new ApiError(error.message);
+      throw error;
+    }
+
+    const requestedPage = Number(searchParams.get("page") || 1);
+    if (!Number.isSafeInteger(requestedPage) || requestedPage < 1) {
+      throw new ApiError("Halaman riwayat tidak valid.");
+    }
+
+    const where = {
+      tanggal: { gte: range.start, lt: range.end },
+      ...(search
+        ? {
+            OR: [
+              { kodeTransaksi: { contains: search, mode: "insensitive" } },
+              { user: { is: { nama: { contains: search, mode: "insensitive" } } } },
+              {
+                detail: {
+                  some: {
+                    produk: {
+                      is: { namaProduk: { contains: search, mode: "insensitive" } },
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+    const [total, sales] = await Promise.all([
+      prisma.transaksiPenjualan.count({ where }),
+      prisma.transaksiPenjualan.findMany({
+        where,
+        include: saleInclude,
+        orderBy: [{ tanggal: "desc" }, { id: "desc" }],
+        skip: (requestedPage - 1) * HISTORY_PAGE_SIZE,
+        take: HISTORY_PAGE_SIZE,
+      }),
+    ]);
+
+    return Response.json({
+      sales,
+      total,
+      page: requestedPage,
+      pageSize: HISTORY_PAGE_SIZE,
+      period,
+      date: range.date,
     });
-    return Response.json({ sales });
   } catch (error) {
     return apiError(error);
   }

@@ -198,11 +198,11 @@ export function planProductImport(parsedRows, products) {
         }
       }
 
-      if (matchedProduct) {
-        const batchStock = matchedProduct.batch?.reduce((total, batch) => total + batch.jumlah, 0) ?? 0;
-        if (product.stok < batchStock) {
-          errors.push(`Stok Excel tidak boleh lebih kecil dari total stok batch (${batchStock}).`);
-        }
+      const batchStock = matchedProduct?.batch?.reduce((total, batch) => total + batch.jumlah, 0) ?? 0;
+      if (matchedProduct && Number.isInteger(product.stok) && product.stok < batchStock) {
+        errors.push(
+          `Stok pada Excel (${product.stok}) lebih kecil dari total stok batch tercatat (${batchStock}); sesuaikan stok per batch melalui Stock Opname.`,
+        );
       }
 
       if (errors.length === 0 && matchedProduct) {
