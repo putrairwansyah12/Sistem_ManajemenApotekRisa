@@ -198,6 +198,13 @@ export function planProductImport(parsedRows, products) {
         }
       }
 
+      const batchStock = matchedProduct?.batch?.reduce((total, batch) => total + batch.jumlah, 0) ?? 0;
+      if (matchedProduct && Number.isInteger(product.stok) && product.stok < batchStock) {
+        errors.push(
+          `Stok pada Excel (${product.stok}) lebih kecil dari total stok batch tercatat (${batchStock}); sesuaikan stok per batch melalui Stock Opname.`,
+        );
+      }
+
       if (errors.length === 0 && matchedProduct) {
         if (usedProducts.has(matchedProduct.id)) {
           errors.push("Produk yang sama sudah dirujuk oleh baris impor lain.");

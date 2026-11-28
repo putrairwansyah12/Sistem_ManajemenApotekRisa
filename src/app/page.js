@@ -96,6 +96,7 @@ const currency = new Intl.NumberFormat("id-ID", {
   maximumFractionDigits: 0,
 });
 const receiptNumber = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 });
+const SALES_PAGE_SIZE = 25;
 
 function money(value) {
   return currency.format(Number(value || 0));
@@ -197,12 +198,18 @@ export default function Home() {
   const [report, setReport] = useState(null);
   const [reportDetail, setReportDetail] = useState(null);
   const [reportFilter, setReportFilter] = useState({ period: "month", date: "" });
+  const [historyFilter, setHistoryFilter] = useState({ period: "month", date: "" });
+  const [appliedHistoryFilter, setAppliedHistoryFilter] = useState({ period: "month", date: "" });
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [expenseDate, setExpenseDate] = useState("");
   const [excelFile, setExcelFile] = useState(null);
   const [excelPreview, setExcelPreview] = useState(null);
+  const [excelDropActive, setExcelDropActive] = useState(false);
   const [backupFile, setBackupFile] = useState(null);
   const [restoreConfirmation, setRestoreConfirmation] = useState("");
   const [query, setQuery] = useState("");
+  const [salesPage, setSalesPage] = useState(1);
   const [cart, setCart] = useState([]);
   const [saleSettings, setSaleSettings] = useState({
     jenis: "OFFLINE",
@@ -235,6 +242,7 @@ export default function Home() {
   const [bulkPage, setBulkPage] = useState(1);
   const [editingProduct, setEditingProduct] = useState(null);
   const editProductFormRef = useRef(null);
+  const historyRequestIdRef = useRef(0);
   const [receiptSale, setReceiptSale] = useState(null);
   const [userEditor, setUserEditor] = useState(null);
   const [showCreatePassword, setShowCreatePassword] = useState(false);
@@ -293,9 +301,15 @@ export default function Home() {
   }, []);
 
   const loadScreen = useCallback(
-    async (currentScreen) => {
+    async (currentScreen, options = {}) => {
+      let historyRequestId = null;
+      if (currentScreen === "history") {
+        historyRequestId = ++historyRequestIdRef.current;
+      } else {
+        historyRequestIdRef.current += 1;
+      }
       setLoading(true);
-      setData([]);
+      if (currentScreen !== "history") setData([]);
       setStockProducts([]);
       setStockProductId("");
       setStockBatchItems([]);
@@ -307,7 +321,19 @@ export default function Home() {
         } else if (currentScreen === "calculator") {
           setData((await request("/api/products")).products);
         } else if (currentScreen === "history") {
-          setData((await request("/api/sales")).sales);
+          const filter = options.historyFilter || { period: "month", date: dateInputValue() };
+          const params = new URLSearchParams({
+            period: filter.period,
+            date: filter.date,
+            page: String(options.historyPage || 1),
+          });
+          if (options.query?.trim()) params.set("q", options.query.trim());
+          const result = await request(`/api/sales?${params.toString()}`);
+          if (historyRequestId === historyRequestIdRef.current) {
+            setData(result.sales);
+            setHistoryTotal(result.total);
+            setHistoryPage(result.page);
+          }
         } else if (currentScreen === "expenses") {
           setExpenseDate(dateInputValue());
           setData((await request("/api/expenses")).expenses);
@@ -334,10 +360,13 @@ export default function Home() {
         } else if (currentScreen === "users") {
           setData((await request("/api/users")).users);
         } else if (currentScreen === "sales") {
+          setSalesPage(1);
           setData((await request("/api/products?untukPenjualan=true")).products);
         }
       } catch (error) {
-        flash(error.message);
+        if (historyRequestId === null || historyRequestId === historyRequestIdRef.current) {
+          flash(error.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -349,6 +378,9 @@ export default function Home() {
     request("/api/auth/session")
       .then(({ user: currentUser }) => {
         setUser(currentUser);
+        const defaultHistoryFilter = { period: "month", date: dateInputValue() };
+        setHistoryFilter(defaultHistoryFilter);
+        setAppliedHistoryFilter(defaultHistoryFilter);
         return loadScreen("dashboard");
       })
       .catch(() => setUser(null))
@@ -373,14 +405,37 @@ export default function Home() {
     );
   }, [data, query, screen, summaryDetail]);
 
+  const salesPageCount = Math.max(1, Math.ceil(filtered.length / SALES_PAGE_SIZE));
+  const activeSalesPage = Math.min(salesPage, salesPageCount);
+  const salesPageStart = (activeSalesPage - 1) * SALES_PAGE_SIZE;
+  const salesPageProducts = filtered.slice(salesPageStart, salesPageStart + SALES_PAGE_SIZE);
+  const historyPageCount = Math.max(1, Math.ceil(historyTotal / SALES_PAGE_SIZE));
+
   function openSummaryDetail(detail) {
     const targetScreen =
       detail === "todayRevenue" ? "history" : detail === "expiring" ? "expiry" : "products";
+    const todayFilter = { period: "day", date: dateInputValue() };
     setSummaryDetail(detail);
     setQuery("");
     setScreen(targetScreen);
     setMobileNavOpen(false);
-    loadScreen(targetScreen);
+    if (targetScreen === "history") {
+      setHistoryFilter(todayFilter);
+      setAppliedHistoryFilter(todayFilter);
+      setHistoryPage(1);
+      loadScreen(targetScreen, { historyFilter: todayFilter, historyPage: 1, query: "" });
+    } else {
+      loadScreen(targetScreen);
+    }
+  }
+
+  function applyHistoryFilter(event) {
+    event.preventDefault();
+    setAppliedHistoryFilter(historyFilter);
+    setSummaryDetail(null);
+    setQuery("");
+    setHistoryPage(1);
+    loadScreen("history", { historyFilter, historyPage: 1, query: "" });
   }
 
   function selectInventoryTab(tab) {
@@ -400,6 +455,9 @@ export default function Home() {
         body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))),
       });
       setUser(currentUser);
+      const defaultHistoryFilter = { period: "month", date: dateInputValue() };
+      setHistoryFilter(defaultHistoryFilter);
+      setAppliedHistoryFilter(defaultHistoryFilter);
       setSummaryDetail(null);
       setScreen("dashboard");
       await loadScreen("dashboard");
@@ -635,6 +693,23 @@ export default function Home() {
     }
   }
 
+  function selectExcelFiles(files) {
+    if (!files?.length) return;
+    setExcelPreview(null);
+    if (files.length !== 1 || !files[0].name.toLowerCase().endsWith(".xlsx")) {
+      setExcelFile(null);
+      flash("Pilih tepat satu file dengan format .xlsx.");
+      return;
+    }
+    setExcelFile(files[0]);
+  }
+
+  function dropExcelFile(event) {
+    event.preventDefault();
+    setExcelDropActive(false);
+    selectExcelFiles(event.dataTransfer.files);
+  }
+
   async function previewProductsExcel(event) {
     event.preventDefault();
     if (!excelFile || excelFile.size > 5 * 1024 * 1024) {
@@ -666,7 +741,7 @@ export default function Home() {
       setExcelPreview(result);
       setExcelFile(null);
       flash(
-        `${result.counts.create} produk ditambahkan dan ${result.counts.update} produk diperbarui.`
+        `${result.counts.create} produk ditambahkan, ${result.counts.update} diperbarui, dan ${result.stockAdjustments} perubahan stok tercatat.`
       );
     } catch (error) {
       if (error.payload?.rows) setExcelPreview(error.payload);
@@ -908,8 +983,18 @@ export default function Home() {
         biayaGratisOngkir: "0",
       });
       flash("Transaksi berhasil. Stok sudah diperbarui.");
+      const currentMonthFilter = { period: "month", date: dateInputValue() };
+      setHistoryFilter(currentMonthFilter);
+      setAppliedHistoryFilter(currentMonthFilter);
+      setHistoryPage(1);
+      setQuery("");
+      setSummaryDetail(null);
       setScreen("history");
-      await loadScreen("history");
+      await loadScreen("history", {
+        historyFilter: currentMonthFilter,
+        historyPage: 1,
+        query: "",
+      });
     } catch (error) {
       flash(error.message);
     } finally {
@@ -978,7 +1063,7 @@ export default function Home() {
           className="w-full max-w-[420px] bg-white rounded-2xl p-8 sm:p-9 shadow-[0_4px_24px_rgba(0,0,0,0.04)] border border-slate-200"
         >
           <div className="flex items-center gap-3.5 mb-7">
-            <div className="w-11 h-11 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-[#320080] border border-[#320080] flex items-center justify-center overflow-hidden shrink-0">
               <Image src="/apotek.jpg" alt="Logo Apotek Risa" width={34} height={34} className="object-cover" />
             </div>
             <div>
@@ -1108,7 +1193,7 @@ export default function Home() {
             }}
             className="flex items-center gap-3 text-left"
           >
-            <div className="w-9 h-9 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-[#320080] border border-[#320080] flex items-center justify-center overflow-hidden shrink-0">
               <Image src="/apotek.jpg" alt="Logo" width={28} height={28} className="object-cover" />
             </div>
             <div>
@@ -1134,7 +1219,7 @@ export default function Home() {
 
             return (
               <div key={group.title}>
-                <p className="px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-2">
+                <p className="px-3 text-[10px] font-bold text-[#806EAA] tracking-wider uppercase mb-2">
                   {group.title}
                 </p>
                 <div className="space-y-1">
@@ -1152,17 +1237,27 @@ export default function Home() {
                           setQuery("");
                           setScreen(item.id);
                           setMobileNavOpen(false);
-                          loadScreen(item.id);
+                          if (item.id === "history") {
+                            setHistoryFilter(appliedHistoryFilter);
+                            setHistoryPage(1);
+                            loadScreen(item.id, {
+                              historyFilter: appliedHistoryFilter,
+                              historyPage: 1,
+                              query: "",
+                            });
+                          } else {
+                            loadScreen(item.id);
+                          }
                         }}
                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                           isSelected
-                            ? "bg-[#5936A8] text-white shadow-xs"
-                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                            ? "bg-[#320080] text-white shadow-xs"
+                            : "text-slate-600 hover:text-[#320080] hover:bg-[#F4F0FF]"
                         }`}
                       >
                         <IconComponent
                           size={17}
-                          className={isSelected ? "text-white" : "text-slate-400"}
+                          className={isSelected ? "text-[#FFE000]" : "text-[#8D7AAE]"}
                         />
                         <span className="truncate">{item.label}</span>
                       </button>
@@ -1324,7 +1419,7 @@ export default function Home() {
                   )}
 
                   {/* Edit Product Form */}
-                  {editingProduct && !summaryDetail && (
+                  {editingProduct && (
                     <motion.div
                       ref={editProductFormRef}
                       variants={itemVariants}
@@ -1759,15 +1854,22 @@ export default function Home() {
                         <p className="text-xs text-slate-500">{filtered.length} produk siap dijual.</p>
                       </div>
                       <div className="w-full sm:w-60">
-                        <TableSearch value={query} onChange={setQuery} placeholder="Cari nama obat..." />
+                        <TableSearch
+                          value={query}
+                          onChange={(value) => {
+                            setQuery(value);
+                            setSalesPage(1);
+                          }}
+                          placeholder="Cari nama obat..."
+                        />
                       </div>
                     </div>
 
-                    <div className="divide-y divide-slate-100 max-h-[560px] overflow-y-auto pr-1">
-                      {filtered.map((product) => (
+                    <div className="divide-y divide-slate-100 pr-1">
+                      {salesPageProducts.map((product) => (
                         <div
                           key={product.id}
-                          className="py-3 flex items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-xl transition-colors"
+                          className="py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 px-2 rounded-xl transition-colors"
                         >
                           <div>
                             <span className="text-xs font-bold text-slate-900 block">{product.namaProduk}</span>
@@ -1806,6 +1908,34 @@ export default function Home() {
                         </div>
                       )}
                     </div>
+                    {filtered.length > 0 && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                        <span className="text-[11px] text-slate-500">
+                          Menampilkan {salesPageStart + 1}–{Math.min(salesPageStart + SALES_PAGE_SIZE, filtered.length)} dari {filtered.length} obat
+                        </span>
+                        <div className="flex items-center justify-between sm:justify-end gap-3">
+                          <button
+                            type="button"
+                            disabled={activeSalesPage === 1}
+                            onClick={() => setSalesPage((page) => Math.max(1, page - 1))}
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Sebelumnya
+                          </button>
+                          <span className="min-w-[88px] text-center text-[11px] font-medium text-slate-600">
+                            Halaman {activeSalesPage} / {salesPageCount}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={activeSalesPage === salesPageCount}
+                            onClick={() => setSalesPage((page) => Math.min(salesPageCount, page + 1))}
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Selanjutnya
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </motion.div>
 
                   {/* Right Column: Cart Panel */}
@@ -1952,16 +2082,129 @@ export default function Home() {
                       </h2>
                       <p className="text-xs text-slate-500">
                         {summaryDetail === "todayRevenue"
-                          ? `${filtered.length} transaksi · Total omzet ${money(dashboard?.todayRevenue)}`
-                          : `${filtered.length} transaksi tercatat.`}
+                          ? `${historyTotal} transaksi · Total omzet ${money(dashboard?.todayRevenue)}`
+                          : `${historyTotal} transaksi ditemukan pada periode ini.`}
                       </p>
                     </div>
                     <div className="w-full sm:w-64">
-                      <TableSearch value={query} onChange={setQuery} placeholder="Cari nomor transaksi / kasir..." />
+                      <TableSearch
+                        value={query}
+                        onChange={(value) => {
+                          setQuery(value);
+                          setHistoryPage(1);
+                          loadScreen("history", {
+                            historyFilter: appliedHistoryFilter,
+                            historyPage: 1,
+                            query: value,
+                          });
+                        }}
+                        placeholder="Cari transaksi, obat, atau kasir..."
+                      />
                     </div>
                   </div>
 
+                  <form
+                    onSubmit={applyHistoryFilter}
+                    className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_auto] items-end gap-3 rounded-xl bg-slate-50 p-4"
+                  >
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-700" htmlFor="history-period">
+                        Tampilkan berdasarkan
+                      </label>
+                      <select
+                        id="history-period"
+                        value={historyFilter.period}
+                        onChange={(event) =>
+                          setHistoryFilter((current) => ({ ...current, period: event.target.value }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800"
+                      >
+                        <option value="day">Tanggal</option>
+                        <option value="month">Bulan</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-semibold text-slate-700" htmlFor="history-date">
+                        {historyFilter.period === "day" ? "Pilih tanggal" : "Pilih bulan"}
+                      </label>
+                      <input
+                        id="history-date"
+                        type={historyFilter.period === "day" ? "date" : "month"}
+                        value={
+                          historyFilter.period === "month"
+                            ? historyFilter.date.slice(0, 7)
+                            : historyFilter.date
+                        }
+                        onChange={(event) =>
+                          setHistoryFilter((current) => ({
+                            ...current,
+                            date:
+                              current.period === "month"
+                                ? event.target.value
+                                  ? `${event.target.value}-01`
+                                  : ""
+                                : event.target.value,
+                          }))
+                        }
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs text-slate-800"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5936A8] px-5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#472985]"
+                    >
+                      <Search size={14} />
+                      Tampilkan
+                    </button>
+                  </form>
+
                   <SalesTable sales={filtered} money={money} date={date} onReceipt={setReceiptSale} />
+                  {historyTotal > 0 && (
+                    <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-[11px] text-slate-500">
+                        Menampilkan {(historyPage - 1) * SALES_PAGE_SIZE + 1}–
+                        {Math.min(historyPage * SALES_PAGE_SIZE, historyTotal)} dari {historyTotal} transaksi
+                      </span>
+                      <div className="flex items-center justify-between gap-3 sm:justify-end">
+                        <button
+                          type="button"
+                          disabled={historyPage <= 1}
+                          onClick={() => {
+                            const nextPage = historyPage - 1;
+                            setHistoryPage(nextPage);
+                            loadScreen("history", {
+                              historyFilter: appliedHistoryFilter,
+                              historyPage: nextPage,
+                              query,
+                            });
+                          }}
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Sebelumnya
+                        </button>
+                        <span className="min-w-[88px] text-center text-[11px] font-medium text-slate-600">
+                          Halaman {historyPage} / {historyPageCount}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={historyPage >= historyPageCount}
+                          onClick={() => {
+                            const nextPage = historyPage + 1;
+                            setHistoryPage(nextPage);
+                            loadScreen("history", {
+                              historyFilter: appliedHistoryFilter,
+                              historyPage: nextPage,
+                              query,
+                            });
+                          }}
+                          className="rounded-lg border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Selanjutnya
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -2155,7 +2398,7 @@ export default function Home() {
                   {/* Export Excel Card */}
                   <motion.div
                     variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
+                    className="h-full bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
                   >
                     <div>
                       <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-4">
@@ -2180,7 +2423,7 @@ export default function Home() {
                   {/* Import Excel Card */}
                   <motion.div
                     variants={itemVariants}
-                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4"
+                    className="h-full bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4 flex flex-col justify-between"
                   >
                     <div>
                       <div className="w-10 h-10 rounded-xl bg-purple-50 text-[#5936A8] flex items-center justify-center mb-4">
@@ -2188,28 +2431,72 @@ export default function Home() {
                       </div>
                       <h2 className="text-sm font-bold text-slate-900">Impor Produk dari Excel</h2>
                       <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                        Perbarui atau tambahkan produk massal dari file .xlsx (maksimal 5 MB).
+                        Perbarui atau tambahkan produk dari file Excel. Periksa pratinjau sebelum menyimpan perubahan.
+                      </p>
+                      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                        Perubahan stok produk lama dicatat sebagai stock opname. Stok batch tetap; nilai stok Excel tidak boleh lebih kecil dari total stok batch.
                       </p>
                     </div>
                     <form onSubmit={previewProductsExcel} className="space-y-4">
-                      <input
-                        key={excelFile?.name || "empty"}
-                        type="file"
-                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        onChange={(e) => {
-                          setExcelFile(e.target.files?.[0] || null);
-                          setExcelPreview(null);
+                      <label
+                        htmlFor="excel-import-file"
+                        onDragEnter={(event) => {
+                          event.preventDefault();
+                          setExcelDropActive(true);
                         }}
-                        required
-                        className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-[#5936A8] hover:file:bg-purple-100"
-                      />
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setExcelDropActive(true);
+                        }}
+                        onDragLeave={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget)) setExcelDropActive(false);
+                        }}
+                        onDrop={dropExcelFile}
+                        className={`flex min-h-[76px] items-center gap-3 rounded-xl border border-dashed px-4 py-3 transition-colors focus-within:ring-2 cursor-pointer ${
+                          excelDropActive
+                            ? "border-[#5936A8] bg-purple-50 ring-2 ring-purple-100"
+                            : "border-slate-300 bg-slate-50 hover:border-purple-300 hover:bg-purple-50/50 focus-within:border-[#5936A8] focus-within:ring-purple-100"
+                        }`}
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-[#5936A8]">
+                          <FileSpreadsheet size={19} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block truncate text-xs font-semibold ${excelFile ? "text-slate-800" : "text-slate-600"}`}>
+                            {excelFile?.name || "Pilih file Excel (.xlsx)"}
+                          </span>
+                          <span className="mt-1 block text-[11px] text-slate-500">
+                            {excelFile
+                              ? `${(excelFile.size / (1024 * 1024)).toFixed(2)} MB · Maksimal 5 MB`
+                              : "Lepas file di sini atau pilih · .xlsx · Maksimal 5 MB"}
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-lg bg-white px-3 py-2 text-[11px] font-semibold text-[#5936A8] shadow-sm">
+                          {excelFile ? "Ganti file" : "Pilih file"}
+                        </span>
+                        <input
+                          id="excel-import-file"
+                          type="file"
+                          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                          onChange={(e) => {
+                            selectExcelFiles(e.target.files);
+                            e.currentTarget.value = "";
+                          }}
+                          className="sr-only"
+                        />
+                      </label>
+                      {excelFile?.size > 5 * 1024 * 1024 && (
+                        <p className="text-xs font-medium text-rose-600" role="alert">
+                          File melebihi batas maksimal 5 MB. Pilih file yang lebih kecil.
+                        </p>
+                      )}
                       <button
                         type="submit"
-                        disabled={busy || !excelFile}
-                        className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                        disabled={busy || !excelFile || excelFile.size > 5 * 1024 * 1024}
+                        className="w-full py-2.5 px-4 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none flex items-center justify-center gap-2"
                       >
                         <Eye size={15} />
-                        <span>Pratinjau Impor</span>
+                        <span>{busy ? "Memproses pratinjau..." : excelFile ? "Pratinjau Impor" : "Pilih file untuk melihat pratinjau"}</span>
                       </button>
                     </form>
 
@@ -2221,15 +2508,32 @@ export default function Home() {
                             {excelPreview.counts?.errors || 0} Perlu Perbaikan
                           </span>
                         </div>
+                        {excelPreview.audit?.status === "BERHASIL" && (
+                          <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+                            <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs font-bold">Impor berhasil disimpan.</p>
+                              <p className="mt-1 text-[11px]">
+                                {excelPreview.counts.create} produk ditambahkan, {excelPreview.counts.update} diperbarui, dan {excelPreview.stockAdjustments} perubahan stok tercatat sebagai stock opname.
+                              </p>
+                            </div>
+                          </div>
+                        )}
                         <ExcelImportTable rows={excelPreview.rows || []} />
-                        <button
-                          type="button"
-                          disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)}
-                          onClick={commitProductsExcel}
-                          className="w-full py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-40"
-                        >
-                          Simpan Perubahan ke Database
-                        </button>
+                        {excelPreview.audit?.status === "BERHASIL" ? (
+                          <div className="rounded-xl bg-slate-50 px-4 py-3 text-center text-xs font-semibold text-slate-600">
+                            Data impor sudah tersimpan. Pilih file lain untuk memulai impor baru.
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy || !excelFile || Boolean(excelPreview.counts?.errors)}
+                            onClick={commitProductsExcel}
+                            className="w-full py-2.5 bg-[#5936A8] hover:bg-[#472985] text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-40"
+                          >
+                            Simpan Perubahan ke Database
+                          </button>
+                        )}
                       </div>
                     )}
                   </motion.div>
@@ -3138,6 +3442,7 @@ function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange,
                     <span>{formatMoney(p.hargaJual)}</span>
                     {owner && (
                       <button
+                        type="button"
                         onClick={() => onPriceChange(p)}
                         className="text-[#5936A8] hover:text-[#472985] p-1 rounded"
                         title="Ubah harga jual"
@@ -3161,6 +3466,7 @@ function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange,
                   <td className="py-3 px-3 text-right">
                     <div className="inline-flex items-center gap-1">
                       <button
+                        type="button"
                         onClick={() => onEdit(p)}
                         className="p-1.5 text-slate-500 hover:text-[#5936A8] hover:bg-purple-50 rounded-lg transition-colors"
                         title="Edit data obat"
@@ -3168,6 +3474,7 @@ function ProductsTable({ products, money: formatMoney, onArchive, onPriceChange,
                         <Edit2 size={14} />
                       </button>
                       <button
+                        type="button"
                         onClick={() => onArchive(p.id)}
                         className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                         title="Arsipkan obat"
@@ -3239,7 +3546,7 @@ function SalesTable({ sales, money: formatMoney, date: formatDate, onReceipt }) 
           {!sales.length && (
             <tr>
               <td colSpan={onReceipt ? 7 : 6} className="py-8 text-center text-slate-400">
-                Belum ada transaksi tersimpan.
+                Tidak ada transaksi yang sesuai dengan filter ini.
               </td>
             </tr>
           )}
